@@ -120,6 +120,9 @@ void ADReyeVRPawn::Tick(float DeltaTime)
     // Tick the logitech wheel
     TickLogiWheel();
 
+    // Tick Ford Cockpit
+    TickFordCockpit();
+
     // Tick spectator screen
     TickSpectatorScreen(DeltaTime);
 }
@@ -335,6 +338,95 @@ void ADReyeVRPawn::DrawFlatHUD(float DeltaSeconds)
         // Draw line components in FlatHUD
         FlatHUD->DrawDynamicLine(RayStart, RayEnd, FColor::Red, 3.0f);
     }
+}
+
+/// ========================================== ///
+/// -------------:FORD COCKPIT:--------------- ///
+/// ========================================== ///
+
+void ADReyeVRPawn::InitFordCockpit()
+{
+    try
+    {
+        io = new boost::asio::io_service();
+        serial = new boost::asio::serial_port(*io);
+
+        serial->open("COM3");
+        serial->set_option(boost::asio::serial_port_base::baud_rate(9600));
+        FordDataArray.Init(0, 29);
+        bIsFordConnected = true;
+    }
+    catch (boost::system::system_error& e)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error opening serial port: %s"), *FString(e.what()));
+        delete serial;
+        serial = nullptr;
+        delete io;
+        io = nullptr;
+    }
+}
+
+void ADReyeVRPawn::TickFordCockpit()
+{
+    if (!bIsFordConnected)
+    {
+        InitFordCockpit();
+    }
+
+    FString dataLine = FordArduinoReadLine();
+    if (!dataLine.IsEmpty())
+    {
+        TArray<FString> dataStringArray;
+        dataLine.ParseIntoArray(dataStringArray, TEXT(","), true);
+        if (dataStringArray.Num() == 29)
+        {
+            for (int32 i = 0; i < dataStringArray.Num(); i++)
+            {
+                FordDataArray[i] = FCString::Atoi(*dataStringArray[i]);
+            }
+            LogFordData();
+        }
+    }
+}
+
+FString ADReyeVRPawn::FordArduinoReadLine()
+{
+    if (serial == nullptr || !serial->is_open())
+    {
+        return FString();
+    }
+
+    boost::asio::streambuf buf;
+    try
+    {
+        boost::asio::read_until(*serial, buf, '>');
+        std::istream is(&buf);
+        std::string line;
+        std::getline(is, line);
+
+        // Remove start marker if present
+        if (!line.empty() && line[0] == '<')
+        {
+            line.erase(0, 1);
+        }
+
+        return FString(line.c_str());
+    }
+    catch (boost::system::system_error& e)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error reading from serial port: %s"), *FString(e.what()));
+        return FString();
+    }
+}
+
+void ADReyeVRPawn::LogFordData()
+{
+    FString logString;
+    for (int32 value : FordDataArray)
+    {
+        logString += FString::Printf(TEXT("%d "), value);
+    }
+    UE_LOG(LogTemp, Log, TEXT("Received data: %s"), *logString);
 }
 
 /// ========================================== ///

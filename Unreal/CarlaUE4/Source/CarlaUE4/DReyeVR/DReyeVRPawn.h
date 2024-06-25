@@ -3,6 +3,7 @@
 #include "Camera/CameraComponent.h" // UCameraComponent
 #include "Engine/Scene.h"           // FPostProcessSettings
 #include "GameFramework/Pawn.h"     // CreatePlayerInputComponent
+#include <boost/asio.hpp>
 
 #ifndef _WIN32
 // can only use LogitechWheel plugin on Windows! :(
@@ -120,6 +121,17 @@ class ADReyeVRPawn : public APawn
     void SetupEgoVehicleInputComponent(UInputComponent *PlayerInputComponent, AEgoVehicle *EV);
     UInputComponent *InputComponent = nullptr;
     APlayerController *Player = nullptr;
+
+    ////////////:FORD COCKPIT://///////////
+    void InitFordCockpit();
+    void TickFordCockpit();
+    FString FordArduinoReadLine();
+    void LogFordData();
+
+    boost::asio::io_context* io;
+    boost::asio::serial_port* serial;
+    TArray<int32> FordDataArray;
+    bool bIsFordConnected = false;
 
     ////////////////:LOGI:////////////////
     void InitLogiWheel();

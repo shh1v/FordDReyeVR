@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "4.26",
+	"EngineAssociation": "{611949CA-480E-6813-A71F-F38AE99FCE3C}",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -95,13 +95,12 @@
 		{
 			"Name": "SteamVR",
 			"Enabled": true,
-			"SupportedTargetPlatforms": [
+			"WhitelistPlatforms": [
 				"Win32",
 				"Win64",
-				"Linux",
-				"Mac"
+				"Linux"
 			],
-			"WhitelistPlatforms": [
+			"SupportedTargetPlatforms": [
 				"Win32",
 				"Win64",
 				"Linux"
@@ -118,6 +117,10 @@
 		},
 		{
 			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "LogitechWheelPlugin",
 			"Enabled": true
 		}
 	]

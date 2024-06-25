@@ -21,6 +21,26 @@ public class CarlaUE4 : ModuleRules
         PublicIncludePaths.Add(LibCarlaIncludePath);
         PrivateIncludePaths.Add(LibCarlaIncludePath);
 
+        // Define the path to the Boost library
+        string BoostPath = Path.Combine(ModuleDirectory, "D:/CarlaDReyeVR/carla/Build/boost-1.72.0-install");
+
+        PublicIncludePaths.AddRange(
+            new string[] {
+                Path.Combine(BoostPath, "include") // Path to Boost include directory
+            }
+        );
+
+        PublicAdditionalLibraries.AddRange(
+            new string[] {
+                Path.Combine(BoostPath, "lib", "libboost_date_time-vc142-mt-x64-1_72.lib"),
+                Path.Combine(BoostPath, "lib", "libboost_filesystem-vc142-mt-x64-1_72.lib"),
+                Path.Combine(BoostPath, "lib", "libboost_python37-vc142-mt-x64-1_72.lib"),
+                Path.Combine(BoostPath, "lib", "libboost_system-vc142-mt-x64-1_72.lib")
+            }
+        );
+
+        PublicDefinitions.Add("BOOST_ALL_NO_LIB"); // Prevent Boost from auto-linking other libraries
+
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG" });
 
         if (Target.Type == TargetType.Editor)
