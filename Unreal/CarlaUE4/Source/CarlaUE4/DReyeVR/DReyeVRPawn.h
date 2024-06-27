@@ -131,7 +131,7 @@ class ADReyeVRPawn : public APawn
     boost::asio::io_context* io;
     boost::asio::serial_port* serial;
     TArray<int32> FordDataArray;
-    bool bIsFordConnected = false;
+    bool bIsFordEstablished = false;
 
     ////////////////:LOGI:////////////////
     void InitLogiWheel();
