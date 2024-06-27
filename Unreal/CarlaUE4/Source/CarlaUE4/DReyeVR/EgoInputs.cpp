@@ -264,7 +264,7 @@ void AEgoVehicle::TickVehicleInputs()
     ManualInputs.bReverse = bReverse;
 
     // apply inputs to this vehicle only when either one of the parameter is non-zero or autopilot is on
-    if ((!FMath::IsNearlyEqual(ManualInputs.Steer, 0.f, 0.02f) ||
+    if ((!FMath::IsNearlyEqual(ManualInputs.Steer, 0.f, 0.03f) ||
         !FMath::IsNearlyEqual(ManualInputs.Brake, 0.f, 0.02f) ||
         !FMath::IsNearlyEqual(ManualInputs.Throttle, 0.f, 0.02f)) ||
         GetAutopilotStatus())

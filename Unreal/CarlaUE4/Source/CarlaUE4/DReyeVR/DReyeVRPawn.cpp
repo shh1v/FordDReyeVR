@@ -353,7 +353,8 @@ void ADReyeVRPawn::InitFordCockpit()
 
         serial->open("COM3");
         serial->set_option(boost::asio::serial_port_base::baud_rate(1000000));
-        FordDataArray.Init(0, 29);
+        OldFordData.Init(0, 29);
+        CurrentFordData.Init(0, 29);
         bIsFordEstablished = true;
     }
     catch (boost::system::system_error& e)
@@ -382,11 +383,86 @@ void ADReyeVRPawn::TickFordCockpit()
         {
             for (int32 i = 0; i < dataStringArray.Num(); i++)
             {
-                FordDataArray[i] = FCString::Atoi(*dataStringArray[i]);
+                OldFordData[i] = CurrentFordData[i];
+                CurrentFordData[i] = FCString::Atoi(*dataStringArray[i]);
             }
-            LogFordData();
         }
     }
+
+    // Update the wheel in the driving simulator and manage button presses
+    if (!bOverrideInputsWithKbd)
+    {
+        FordWheelUpdate();
+    }
+    bOverrideInputsWithKbd = false; // disable for the next tick (unless held, which will set to true)
+}
+
+void ADReyeVRPawn::FordWheelUpdate() {
+    check(EgoVehicle);
+    ensure(bOverrideInputsWithKbd == false); // kbd inputs should be false
+
+    /// NOTE: obtained these manually by running tests: https://github.com/mimuc/FordDrivingSimulator/tree/main/Arduino/DrivingSim/Tests
+    // 180 to 820. 180 = all the way to the left. 820 = all the way to the right.
+    const float WheelRotation = ScaleValue(CurrentFordData[5], 180, 820, -1, 1);
+    // 705 to 1025. 705 = pedal not pressed. 1025 = pedal fully pressed.
+    const float AccelerationPedal = ScaleValue(CurrentFordData[0], 705, 1025, 0, 1);
+    // 725 to 1010. Higher value = more pressure on brake pedal
+    const float BrakePedal = ScaleValue(CurrentFordData[1], 725, 1010, 0, 1);
+
+    //GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
+    //GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
+    //GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
+
+    /// NOTE: directly calling the EgoVehicle functions
+    if (!EgoVehicle->GetAutopilotStatus())
+    {
+        EgoVehicle->AddSteering(WheelRotation);
+        EgoVehicle->AddThrottle(AccelerationPedal);
+        EgoVehicle->AddBrake(BrakePedal);
+    }
+    
+    // save the last values for the wheel & pedals
+    WheelRotationLast = WheelRotation;
+    AccelerationPedalLast = AccelerationPedal;
+    BrakePedalLast = BrakePedal;
+
+    ManageFordButtonPresses();
+}
+
+void ADReyeVRPawn::ManageFordButtonPresses()
+{
+    const bool bA = !static_cast<bool>(CurrentFordData[11]); // For some reason button press is 0, thus inverse is needed
+    const bool bB = !static_cast<bool>(CurrentFordData[10]); // For some reason button press is 0, thus inverse is needed
+
+    if (bA)
+        EgoVehicle->PressReverse();
+    else
+        EgoVehicle->ReleaseReverse();
+
+    bool bTurnSignalR = !static_cast<bool>(CurrentFordData[18]);
+    bool bTurnSignalL = !static_cast<bool>(CurrentFordData[19]);
+
+    if (bTurnSignalR)
+        EgoVehicle->PressTurnSignalR();
+    else
+        EgoVehicle->ReleaseTurnSignalR();
+
+    if (bTurnSignalL)
+        EgoVehicle->PressTurnSignalL();
+    else
+        EgoVehicle->ReleaseTurnSignalL();
+
+}
+
+float ADReyeVRPawn::ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax)
+{
+    // Ensure the input value is within the input range
+    InputValue = FMath::Clamp(InputValue, InputMin, InputMax);
+
+    // Scale the value
+    float ScaledValue = OutputMin + ((OutputMax - OutputMin) * (InputValue - InputMin)) / (InputMax - InputMin);
+
+    return FMath::Clamp(ScaledValue, OutputMin, OutputMax);
 }
 
 FString ADReyeVRPawn::FordArduinoReadLine()
@@ -422,7 +498,7 @@ FString ADReyeVRPawn::FordArduinoReadLine()
 void ADReyeVRPawn::LogFordData()
 {
     FString logString;
-    for (int32 value : FordDataArray)
+    for (int32 value : CurrentFordData)
     {
         logString += FString::Printf(TEXT("%d "), value);
     }
@@ -631,10 +707,10 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     AccelerationPedalLast = AccelerationPedal;
     BrakePedalLast = BrakePedal;
 
-    ManageButtonPresses(*WheelState);
+    ManageLogiButtonPresses(*WheelState);
 }
 
-void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
+void ADReyeVRPawn::ManageLogiButtonPresses(const DIJOYSTATE2 &WheelState)
 {
     const bool bABXY_A = static_cast<bool>(WheelState.rgbButtons[0]);
     const bool bABXY_B = static_cast<bool>(WheelState.rgbButtons[2]);

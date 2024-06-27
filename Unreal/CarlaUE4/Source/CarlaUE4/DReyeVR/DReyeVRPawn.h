@@ -121,16 +121,24 @@ class ADReyeVRPawn : public APawn
     void SetupEgoVehicleInputComponent(UInputComponent *PlayerInputComponent, AEgoVehicle *EV);
     UInputComponent *InputComponent = nullptr;
     APlayerController *Player = nullptr;
+    
+    ////////////:FORD + LOGI://///////////
+    float WheelRotationLast, AccelerationPedalLast, BrakePedalLast;
 
     ////////////:FORD COCKPIT://///////////
     void InitFordCockpit();
     void TickFordCockpit();
+    void FordWheelUpdate();
+    void ManageFordButtonPresses();
     FString FordArduinoReadLine();
+    float ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax);
     void LogFordData();
+
 
     boost::asio::io_context* io;
     boost::asio::serial_port* serial;
-    TArray<int32> FordDataArray;
+    TArray<int32> OldFordData;
+    TArray<int32> CurrentFordData;
     bool bIsFordEstablished = false;
 
     ////////////////:LOGI:////////////////
@@ -145,9 +153,8 @@ class ADReyeVRPawn : public APawn
     struct DIJOYSTATE2 *Old = nullptr; // global "old" struct for the last state
     void LogLogitechPluginStruct(const struct DIJOYSTATE2 *Now);
     void LogitechWheelUpdate();                              // for logitech wheel integration
-    void ManageButtonPresses(const DIJOYSTATE2 &WheelState); // for managing button presses
+    void ManageLogiButtonPresses(const DIJOYSTATE2 &WheelState); // for managing button presses
     void ApplyForceFeedback() const;                         // for logitech wheel integration
-    float WheelRotationLast, AccelerationPedalLast, BrakePedalLast;
 #endif
     bool bIsLogiConnected = false; // check if Logi device is connected (on BeginPlay)
     bool bIsHMDConnected = false;  // checks for HMD connection on BeginPlay

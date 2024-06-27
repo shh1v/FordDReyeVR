@@ -981,7 +981,7 @@ void AEgoVehicle::TickSteeringWheel(const float DeltaTime)
         InitAutopilotIndicator();
     const FRotator CurrentRotation = SteeringWheel->GetRelativeRotation();
     FRotator NewRotation = CurrentRotation;
-    if (Pawn && Pawn->GetIsLogiConnected() && !GetAutopilotStatus())
+    if (Pawn && !GetAutopilotStatus())
     {
         // make the virtual wheel rotation follow the physical steering wheel
         const float RawSteering = GetVehicleInputs().Steering; // this is scaled in SetSteering
