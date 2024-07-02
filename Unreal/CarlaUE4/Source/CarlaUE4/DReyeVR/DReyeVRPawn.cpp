@@ -377,7 +377,6 @@ void ADReyeVRPawn::TickFordCockpit()
     FString dataLine = FordArduinoReadLine();
     if (!dataLine.IsEmpty())
     {
-        UE_LOG(LogTemp, Log, TEXT("%s"), *dataLine);
         TArray<FString> dataStringArray;
         dataLine.ParseIntoArray(dataStringArray, TEXT(","), true);
         if (dataStringArray.Num() == 29)
@@ -404,11 +403,18 @@ void ADReyeVRPawn::FordWheelUpdate() {
 
     /// NOTE: obtained these manually by running tests: https://github.com/mimuc/FordDrivingSimulator/tree/main/Arduino/DrivingSim/Tests
     // 180 to 820. 180 = all the way to the left. 820 = all the way to the right.
-    const float WheelRotation = ScaleValue(CurrentFordData[5], 180, 820, -1, 1);
+    float WheelRotation = ScaleValue(CurrentFordData[5], 180, 820, -1, 1);
     // 705 to 1025. 705 = pedal not pressed. 1025 = pedal fully pressed.
     const float AccelerationPedal = ScaleValue(CurrentFordData[0], 705, 1025, 0, 1);
     // 725 to 1010. Higher value = more pressure on brake pedal
     const float BrakePedal = ScaleValue(CurrentFordData[1], 725, 1010, 0, 1);
+    
+    // The Ford cockpit data isn't the best in terms of data accuracy. Therefore, in order to counteract
+    // jittery effect when the steering wheel is at rest, some checks are added.
+    if (FMath::IsNearlyEqual(WheelRotation, 0.f, 0.01f))
+    {
+        WheelRotation = 0.f;
+    }
 
     GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
     GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
