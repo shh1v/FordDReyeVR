@@ -352,7 +352,7 @@ void ADReyeVRPawn::InitFordCockpit()
         serial = new boost::asio::serial_port(*io);
 
         serial->open("COM3");
-        serial->set_option(boost::asio::serial_port_base::baud_rate(1000000));
+        serial->set_option(boost::asio::serial_port_base::baud_rate(2000000));
         OldFordData.Init(0, 29);
         CurrentFordData.Init(0, 29);
         bIsFordEstablished = true;
@@ -377,6 +377,7 @@ void ADReyeVRPawn::TickFordCockpit()
     FString dataLine = FordArduinoReadLine();
     if (!dataLine.IsEmpty())
     {
+        UE_LOG(LogTemp, Log, TEXT("%s"), *dataLine);
         TArray<FString> dataStringArray;
         dataLine.ParseIntoArray(dataStringArray, TEXT(","), true);
         if (dataStringArray.Num() == 29)
@@ -409,9 +410,9 @@ void ADReyeVRPawn::FordWheelUpdate() {
     // 725 to 1010. Higher value = more pressure on brake pedal
     const float BrakePedal = ScaleValue(CurrentFordData[1], 725, 1010, 0, 1);
 
-    //GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
-    //GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
-    //GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
+    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
+    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
+    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
 
     /// NOTE: directly calling the EgoVehicle functions
     if (!EgoVehicle->GetAutopilotStatus())
@@ -472,28 +473,42 @@ FString ADReyeVRPawn::FordArduinoReadLine()
         return FString();
     }
 
-    boost::asio::streambuf buf;
-    try
-    {
-        boost::asio::read_until(*serial, buf, '>');
-        std::istream is(&buf);
-        std::string line;
-        std::getline(is, line);
+    std::string data;
+    bool reading = false;
 
-        // Remove start marker if present
-        if (!line.empty() && line[0] == '<')
+    while (true)
+    {
+        boost::asio::streambuf buf;
+        try
         {
-            line.erase(0, 1);
+            boost::asio::read(*serial, buf, boost::asio::transfer_at_least(1));
+            std::istream is(&buf);
+            char c;
+            while (is.get(c))
+            {
+                if (c == '<')
+                {
+                    data.clear();
+                    reading = true;
+                }
+                else if (c == '>' && reading)
+                {
+                    return FString(data.c_str());
+                }
+                else if (reading)
+                {
+                    data += c;
+                }
+            }
         }
-
-        return FString(line.c_str());
-    }
-    catch (boost::system::system_error& e)
-    {
-        UE_LOG(LogTemp, Error, TEXT("Error reading from serial port: %s"), *FString(e.what()));
-        return FString();
+        catch (boost::system::system_error& e)
+        {
+            UE_LOG(LogTemp, Error, TEXT("Error reading from serial port: %s"), *FString(e.what()));
+            return FString();
+        }
     }
 }
+
 
 void ADReyeVRPawn::LogFordData()
 {
