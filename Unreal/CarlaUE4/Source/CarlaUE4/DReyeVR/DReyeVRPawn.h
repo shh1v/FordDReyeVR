@@ -3,7 +3,7 @@
 #include "Camera/CameraComponent.h" // UCameraComponent
 #include "Engine/Scene.h"           // FPostProcessSettings
 #include "GameFramework/Pawn.h"     // CreatePlayerInputComponent
-#include "DataLogger.h"             // Data Logging
+#include <boost/asio.hpp>
 
 #ifndef _WIN32
 // can only use LogitechWheel plugin on Windows! :(
@@ -122,6 +122,25 @@ class ADReyeVRPawn : public APawn
     UInputComponent *InputComponent = nullptr;
     APlayerController *Player = nullptr;
 
+    ////////////:FORD + LOGI://///////////
+    float WheelRotationLast, AccelerationPedalLast, BrakePedalLast;
+
+    ////////////:FORD COCKPIT://///////////
+    void InitFordCockpit();
+    void TickFordCockpit();
+    void FordWheelUpdate();
+    void ManageFordButtonPresses();
+    FString FordArduinoReadLine();
+    float ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax);
+    void LogFordData();
+
+
+    boost::asio::io_context* io;
+    boost::asio::serial_port* serial;
+    TArray<int32> OldFordData;
+    TArray<int32> CurrentFordData;
+    bool bIsFordEstablished = false;
+
     ////////////////:LOGI:////////////////
     void InitLogiWheel();
     void TickLogiWheel();
@@ -136,7 +155,6 @@ class ADReyeVRPawn : public APawn
     void LogitechWheelUpdate();                              // for logitech wheel integration
     void ManageButtonPresses(const DIJOYSTATE2 &WheelState); // for managing button presses
     void ApplyForceFeedback() const;                         // for logitech wheel integration
-    float WheelRotationLast, AccelerationPedalLast, BrakePedalLast;
 #endif
     bool bIsLogiConnected = false; // check if Logi device is connected (on BeginPlay)
     bool bIsHMDConnected = false;  // checks for HMD connection on BeginPlay
@@ -144,8 +162,4 @@ class ADReyeVRPawn : public APawn
     // "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input."
     // https://github.com/HARPLab/LogitechWheelPlugin
     bool bPedalsDefaulting = true;
-
-private:
-    ////////////////:LOGGING:////////////////
-    //DataLogger *Logger; // DataLogger Object to run logging operations; now handled by client side
 };

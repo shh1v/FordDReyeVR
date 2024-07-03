@@ -119,8 +119,11 @@ void ADReyeVRPawn::Tick(float DeltaTime)
     // Tick SteamVR
     TickSteamVR();
 
-    // Tick the logitech wheel
-    TickLogiWheel();
+    // Tick the logitech wheel (disabled as ford cockpit is currently being used)
+    // TickLogiWheel();
+
+    // Tick Ford Cockpit
+    TickFordCockpit();
 
     // Tick spectator screen
     TickSpectatorScreen(DeltaTime);
@@ -338,6 +341,194 @@ void ADReyeVRPawn::DrawFlatHUD(float DeltaSeconds)
         FlatHUD->DrawDynamicLine(RayStart, RayEnd, FColor::Red, 3.0f);
     }
 }
+
+
+/// ========================================== ///
+/// -------------:FORD COCKPIT:--------------- ///
+/// ========================================== ///
+
+void ADReyeVRPawn::InitFordCockpit()
+{
+    try
+    {
+        io = new boost::asio::io_service();
+        serial = new boost::asio::serial_port(*io);
+
+        serial->open("COM3");
+        serial->set_option(boost::asio::serial_port_base::baud_rate(2000000));
+        OldFordData.Init(0, 29);
+        CurrentFordData.Init(0, 29);
+        bIsFordEstablished = true;
+    }
+    catch (boost::system::system_error& e)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error opening serial port: %s"), *FString(e.what()));
+        delete serial;
+        serial = nullptr;
+        delete io;
+        io = nullptr;
+    }
+}
+
+void ADReyeVRPawn::TickFordCockpit()
+{
+    if (!bIsFordEstablished)
+    {
+        InitFordCockpit();
+    }
+
+    FString dataLine = FordArduinoReadLine();
+    if (!dataLine.IsEmpty())
+    {
+        TArray<FString> dataStringArray;
+        dataLine.ParseIntoArray(dataStringArray, TEXT(","), true);
+        if (dataStringArray.Num() == 29)
+        {
+            for (int32 i = 0; i < dataStringArray.Num(); i++)
+            {
+                OldFordData[i] = CurrentFordData[i];
+                CurrentFordData[i] = FCString::Atoi(*dataStringArray[i]);
+            }
+        }
+    }
+
+    // Update the wheel in the driving simulator and manage button presses
+    if (!bOverrideInputsWithKbd)
+    {
+        FordWheelUpdate();
+    }
+    bOverrideInputsWithKbd = false; // disable for the next tick (unless held, which will set to true)
+}
+
+void ADReyeVRPawn::FordWheelUpdate() {
+    check(EgoVehicle);
+    ensure(bOverrideInputsWithKbd == false); // kbd inputs should be false
+
+    /// NOTE: obtained these manually by running tests: https://github.com/mimuc/FordDrivingSimulator/tree/main/Arduino/DrivingSim/Tests
+    // 180 to 820. 180 = all the way to the left. 820 = all the way to the right.
+    float WheelRotation = ScaleValue(CurrentFordData[5], 180, 820, -1, 1);
+    // 705 to 1025. 705 = pedal not pressed. 1025 = pedal fully pressed.
+    const float AccelerationPedal = ScaleValue(CurrentFordData[0], 705, 1025, 0, 1);
+    // 725 to 1010. Higher value = more pressure on brake pedal
+    const float BrakePedal = ScaleValue(CurrentFordData[1], 725, 1010, 0, 1);
+
+    // The Ford cockpit data isn't the best in terms of data accuracy. Therefore, in order to counteract
+    // jittery effect when the steering wheel is at rest, some checks are added.
+    if (FMath::IsNearlyEqual(WheelRotation, 0.f, 0.01f))
+    {
+        WheelRotation = 0.f;
+    }
+
+    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
+    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
+    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
+
+    /// NOTE: directly calling the EgoVehicle functions
+    if (!EgoVehicle->GetAutopilotStatus())
+    {
+        EgoVehicle->AddSteering(WheelRotation);
+        EgoVehicle->AddThrottle(AccelerationPedal);
+        EgoVehicle->AddBrake(BrakePedal);
+    }
+
+    // save the last values for the wheel & pedals
+    WheelRotationLast = WheelRotation;
+    AccelerationPedalLast = AccelerationPedal;
+    BrakePedalLast = BrakePedal;
+
+    ManageFordButtonPresses();
+}
+
+void ADReyeVRPawn::ManageFordButtonPresses()
+{
+    const bool bA = !static_cast<bool>(CurrentFordData[11]); // For some reason button press is 0, thus inverse is needed
+    const bool bB = !static_cast<bool>(CurrentFordData[10]); // For some reason button press is 0, thus inverse is needed
+
+    if (bA)
+        EgoVehicle->PressReverse();
+    else
+        EgoVehicle->ReleaseReverse();
+
+    bool bTurnSignalR = !static_cast<bool>(CurrentFordData[18]);
+    bool bTurnSignalL = !static_cast<bool>(CurrentFordData[19]);
+
+    if (bTurnSignalR)
+        EgoVehicle->PressTurnSignalR();
+    else
+        EgoVehicle->ReleaseTurnSignalR();
+
+    if (bTurnSignalL)
+        EgoVehicle->PressTurnSignalL();
+    else
+        EgoVehicle->ReleaseTurnSignalL();
+
+}
+
+float ADReyeVRPawn::ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax)
+{
+    // Ensure the input value is within the input range
+    InputValue = FMath::Clamp(InputValue, InputMin, InputMax);
+
+    // Scale the value
+    float ScaledValue = OutputMin + ((OutputMax - OutputMin) * (InputValue - InputMin)) / (InputMax - InputMin);
+
+    return FMath::Clamp(ScaledValue, OutputMin, OutputMax);
+}
+
+FString ADReyeVRPawn::FordArduinoReadLine()
+{
+    if (serial == nullptr || !serial->is_open())
+    {
+        return FString();
+    }
+
+    std::string data;
+    bool reading = false;
+
+    while (true)
+    {
+        boost::asio::streambuf buf;
+        try
+        {
+            boost::asio::read(*serial, buf, boost::asio::transfer_at_least(1));
+            std::istream is(&buf);
+            char c;
+            while (is.get(c))
+            {
+                if (c == '<')
+                {
+                    data.clear();
+                    reading = true;
+                }
+                else if (c == '>' && reading)
+                {
+                    return FString(data.c_str());
+                }
+                else if (reading)
+                {
+                    data += c;
+                }
+            }
+        }
+        catch (boost::system::system_error& e)
+        {
+            UE_LOG(LogTemp, Error, TEXT("Error reading from serial port: %s"), *FString(e.what()));
+            return FString();
+        }
+    }
+}
+
+
+void ADReyeVRPawn::LogFordData()
+{
+    FString logString;
+    for (int32 value : CurrentFordData)
+    {
+        logString += FString::Printf(TEXT("%d "), value);
+    }
+    UE_LOG(LogTemp, Log, TEXT("Received data: %s"), *logString);
+}
+
 
 /// ========================================== ///
 /// ---------------:LOGITECH:----------------- ///
