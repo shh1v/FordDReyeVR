@@ -3,7 +3,7 @@
 #include "Camera/CameraComponent.h" // UCameraComponent
 #include "Engine/Scene.h"           // FPostProcessSettings
 #include "GameFramework/Pawn.h"     // CreatePlayerInputComponent
-#include <boost/asio.hpp>
+#include "DataLogger.h"             // Data Logging
 
 #ifndef _WIN32
 // can only use LogitechWheel plugin on Windows! :(
@@ -121,40 +121,22 @@ class ADReyeVRPawn : public APawn
     void SetupEgoVehicleInputComponent(UInputComponent *PlayerInputComponent, AEgoVehicle *EV);
     UInputComponent *InputComponent = nullptr;
     APlayerController *Player = nullptr;
-    
-    ////////////:FORD + LOGI://///////////
-    float WheelRotationLast, AccelerationPedalLast, BrakePedalLast;
-
-    ////////////:FORD COCKPIT://///////////
-    void InitFordCockpit();
-    void TickFordCockpit();
-    void FordWheelUpdate();
-    void ManageFordButtonPresses();
-    FString FordArduinoReadLine();
-    float ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax);
-    void LogFordData();
-
-
-    boost::asio::io_context* io;
-    boost::asio::serial_port* serial;
-    TArray<int32> OldFordData;
-    TArray<int32> CurrentFordData;
-    bool bIsFordEstablished = false;
 
     ////////////////:LOGI:////////////////
     void InitLogiWheel();
     void TickLogiWheel();
     void DestroyLogiWheel(bool DestroyModule);
-    bool bLogLogitechWheel = false;
-    float LogiThresh = 0.02f;      // threshold for change needed to overtake AI controls
+    bool bLogLogitechWheel = true;
+    float LogiThresh = 0.02f;      // threshold for change needed to overtake AI controls.
     int SaturationPercentage = 30; // "Level of saturation... comparable to a magnitude"
     int WheelDeviceIdx = 0;        // usually leaving as 0 is fine, only use 1 if 0 is taken
 #if USE_LOGITECH_PLUGIN
     struct DIJOYSTATE2 *Old = nullptr; // global "old" struct for the last state
     void LogLogitechPluginStruct(const struct DIJOYSTATE2 *Now);
     void LogitechWheelUpdate();                              // for logitech wheel integration
-    void ManageLogiButtonPresses(const DIJOYSTATE2 &WheelState); // for managing button presses
+    void ManageButtonPresses(const DIJOYSTATE2 &WheelState); // for managing button presses
     void ApplyForceFeedback() const;                         // for logitech wheel integration
+    float WheelRotationLast, AccelerationPedalLast, BrakePedalLast;
 #endif
     bool bIsLogiConnected = false; // check if Logi device is connected (on BeginPlay)
     bool bIsHMDConnected = false;  // checks for HMD connection on BeginPlay
@@ -162,4 +144,8 @@ class ADReyeVRPawn : public APawn
     // "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input."
     // https://github.com/HARPLab/LogitechWheelPlugin
     bool bPedalsDefaulting = true;
+
+private:
+    ////////////////:LOGGING:////////////////
+    //DataLogger *Logger; // DataLogger Object to run logging operations; now handled by client side
 };

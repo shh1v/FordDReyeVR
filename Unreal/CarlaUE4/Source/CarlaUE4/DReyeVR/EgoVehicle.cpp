@@ -2,15 +2,14 @@
 #include "Carla/Actor/ActorAttribute.h"             // FActorAttribute
 #include "Carla/Actor/ActorRegistry.h"              // Register
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
-#include "Carla/Vehicle/CarlaWheeledVehicleState.h" // ECarlaWheeledVehicleState
 #include "DReyeVRPawn.h"                            // ADReyeVRPawn
 #include "DrawDebugHelpers.h"                       // Debug Line/Sphere
 #include "Engine/EngineTypes.h"                     // EBlendMode
 #include "Engine/World.h"                           // GetWorld
 #include "GameFramework/Actor.h"                    // Destroy
-#include "Kismet/KismetSystemLibrary.h"             // PrintString, QuitGame
 #include "Math/Rotator.h"                           // RotateVector, Clamp
 #include "Math/UnrealMathUtility.h"                 // Clamp
+#include <DateTime.h>
 
 #include <algorithm>
 
@@ -45,6 +44,9 @@ AEgoVehicle::AEgoVehicle(const FObjectInitializer &ObjectInitializer) : Super(Ob
 
     // Initialize the steering wheel
     ConstructSteeringWheel();
+
+    //Initialize the NDRT head-up display
+    SetupNDRT();
 
     LOG("Finished constructing %s", *FString(this->GetName()));
 }
@@ -92,7 +94,115 @@ void AEgoVehicle::ReadConfigVariables()
     GeneralParams.Get("VehicleInputs", "ScaleBrakeInput", ScaleBrakeInput);
     // replay
     GeneralParams.Get("Replayer", "CameraFollowHMD", bCameraFollowHMD);
+
+    // Read the experiment variables
+    ReadExperimentVariables();
 }
+
+void AEgoVehicle::ReadExperimentVariables()
+{
+    // Get the current time
+    const FDateTime Now = FDateTime::Now();
+
+    // This is done so that the updated file (by python API) is re-read
+    ExperimentParams = ConfigFile(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));
+
+    // Retrieve the interruption paradigm that will be used
+    FString InterruptionParadigm;
+    ExperimentParams.Get("General", "InterruptionParadigm", InterruptionParadigm);
+    if (InterruptionParadigm.Equals(TEXT("SelfRegulated")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SelfRegulated"), *Now.ToString());
+    }
+    else if (InterruptionParadigm.Equals(TEXT("SystemRecommended")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SystemRecommended;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SystemRecommended"), *Now.ToString());
+    }
+    else if (InterruptionParadigm.Equals(TEXT("SystemInitiated")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SystemInitiated;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SystemInitiated"), *Now.ToString());
+    }
+
+    // Get the current block name so that trial specific variables can be retrieved
+    FString CurrentBlock;
+    ExperimentParams.Get<FString>("General", "CurrentBlock", CurrentBlock);
+    UE_LOG(LogTemp, Warning, TEXT("[%s] Current Block: %s"), *Now.ToString(), *CurrentBlock);
+
+    // Retrieve if this is a test trial or not
+    IsSkippingSR = ExperimentParams.Get<FString>(CurrentBlock, "SkipSR").Equals("True");
+
+    // Get the type of NDRT
+    FString NDRTTaskType;
+    ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType", NDRTTaskType);
+    if (NDRTTaskType.Equals(TEXT("NBackTask")))
+    {
+        CurrTaskType = TaskType::NBackTask;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: NBackTask"), *Now.ToString());
+    }
+    else if (NDRTTaskType.Equals(TEXT("PatternMatchingTask")))
+    {
+        CurrTaskType = TaskType::PatternMatchingTask;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: PatternMatchingTask"), *Now.ToString());
+    }
+    else if (NDRTTaskType.Equals(TEXT("TVShowTask")))
+    {
+        CurrTaskType = TaskType::TVShowTask;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: TVShowTask"), *Now.ToString());
+    }
+
+    // Get the specific configuration of the NDRT
+    FString TaskSetting;
+    ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting", TaskSetting);
+
+    if (CurrTaskType == TaskType::NBackTask)
+    {
+        if (TaskSetting.Equals(TEXT("One")))
+        {
+            CurrentNValue = NValue::One;
+            TotalNBackTasks = 40;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: One"), *Now.ToString());
+        }
+        else if (TaskSetting.Equals(TEXT("Two")))
+        {
+            CurrentNValue = NValue::Two;
+            TotalNBackTasks = 30;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Two"), *Now.ToString());
+        }
+        else if (TaskSetting.Equals(TEXT("Three")))
+        {
+            CurrentNValue = NValue::Three;
+            TotalNBackTasks = 20;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Three"), *Now.ToString());
+        }
+    }
+    else if (CurrTaskType == TaskType::PatternMatchingTask)
+    {
+        if (TaskSetting.Equals(TEXT("One")))
+        {
+            CurrentPMLines = PMLines::One;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: One"), *Now.ToString());
+        }
+        else if (TaskSetting.Equals(TEXT("Two")))
+        {
+            CurrentPMLines = PMLines::Two;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Two"), *Now.ToString());
+        }
+        else if (TaskSetting.Equals(TEXT("Three")))
+        {
+            CurrentPMLines = PMLines::Three;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Three"), *Now.ToString());
+        }
+    }
+    else if (CurrTaskType == TaskType::TVShowTask)
+    {
+        // TODO: Implement all the necessary functionality here for the TV show task
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Task Type: TVShowTask - Specific settings not implemented yet"), *Now.ToString());
+    }
+}
+
 
 void AEgoVehicle::BeginPlay()
 {
@@ -115,10 +225,26 @@ void AEgoVehicle::BeginPlay()
     BeginThirdPersonCameraInit();
 
     LOG("Initialized DReyeVR EgoVehicle");
+
+
+    // Initialize the thread to get data from the eye tracker and the client
+    GetDataRunnable = new RetrieveDataRunnable(this);
+
+    // Start the NDRT on head-up display
+    StartNDRT();
+
+    LOG("Started the NDRT on the head-up display");
 }
 
 void AEgoVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    // Stop the thread, either when the game is exited, or reload_world() is called by the client
+    if (GetDataRunnable != nullptr)
+    {
+        delete GetDataRunnable;
+        GetDataRunnable = nullptr;
+    }
+
     // https://docs.unrealengine.com/4.27/en-US/API/Runtime/Engine/Engine/EEndPlayReason__Type/
     if (EndPlayReason == EEndPlayReason::Destroyed)
     {
@@ -176,6 +302,15 @@ void AEgoVehicle::Tick(float DeltaSeconds)
 
     // Tick vehicle controls
     TickVehicleInputs();
+
+    // Tick NDRT
+    TickNDRT();
+
+    // Tick HUD debugger
+    if (GeneralParams.Get<bool>("EgoVehicleHUD", "EnableHUDDebugger"))
+    {
+        HUDDebuggerTick();
+    }
 }
 
 /// ========================================== ///
@@ -605,6 +740,7 @@ void AEgoVehicle::ConstructEgoSounds()
         EgoEngineRevSound->bAutoActivate = true;                // start playing on begin
         EngineLocnInVehicle = VehicleParams.Get<FVector>("Sounds", "EngineLocn");
         EgoEngineRevSound->SetRelativeLocation(EngineLocnInVehicle); // location of "engine" in vehicle (3D sound)
+        EgoEngineRevSound->SetVolumeMultiplier(0.5f);
         EgoEngineRevSound->SetFloatParameter(FName("RPM"), 0.f);     // initially idle
         EgoEngineRevSound->bAutoDestroy = false;                     // No automatic destroy, persist along with vehicle
         check(EgoEngineRevSound != nullptr);
@@ -619,6 +755,7 @@ void AEgoVehicle::ConstructEgoSounds()
         EgoCrashSound = CreateEgoObject<UAudioComponent>("EgoCarCrash");
         FindSound<USoundCue>("Sound", "DefaultCrashSound", EgoCrashSound);
         EgoCrashSound->SetupAttachment(GetRootComponent());
+        EgoCrashSound->SetVolumeMultiplier(0.75f);
         EgoCrashSound->bAutoActivate = false;
         EgoCrashSound->bAutoDestroy = false;
         check(EgoCrashSound != nullptr);
@@ -981,7 +1118,7 @@ void AEgoVehicle::TickSteeringWheel(const float DeltaTime)
         InitAutopilotIndicator();
     const FRotator CurrentRotation = SteeringWheel->GetRelativeRotation();
     FRotator NewRotation = CurrentRotation;
-    if (Pawn && !GetAutopilotStatus())
+    if (Pawn && Pawn->GetIsLogiConnected() && !GetAutopilotStatus())
     {
         // make the virtual wheel rotation follow the physical steering wheel
         const float RawSteering = GetVehicleInputs().Steering; // this is scaled in SetSteering

@@ -1,9 +1,8 @@
 #include "DReyeVRPawn.h"
 #include "DReyeVRUtils.h"                      // CreatePostProcessingEffect
-#include "EgoVehicle.h"                        // AEgoVehicle
+#include "EgoVehicle.h"                        // AEgoVehicle, and some singals for data logging
 #include "HeadMountedDisplayFunctionLibrary.h" // SetTrackingOrigin, GetWorldToMetersScale
 #include "HeadMountedDisplayTypes.h"           // ESpectatorScreenMode
-#include "Materials/MaterialInstanceDynamic.h" // UMaterialInstanceDynamic
 #include "UObject/UObjectGlobals.h"            // LoadObject, NewObject
 
 ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(ObjectInitializer)
@@ -23,6 +22,9 @@ ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(
 
     // spawn and construct the first person camera
     ConstructCamera();
+
+    // Inializing logging operator
+    //Logger = new DataLogger(); // This is now being handled by client side
 
     // log
     LOG("Spawning DReyeVR pawn for player0");
@@ -118,10 +120,7 @@ void ADReyeVRPawn::Tick(float DeltaTime)
     TickSteamVR();
 
     // Tick the logitech wheel
-    //TickLogiWheel(); (Disabled as ford cockpit is currently being used)
-
-    // Tick Ford Cockpit
-    TickFordCockpit();
+    TickLogiWheel();
 
     // Tick spectator screen
     TickSpectatorScreen(DeltaTime);
@@ -341,192 +340,6 @@ void ADReyeVRPawn::DrawFlatHUD(float DeltaSeconds)
 }
 
 /// ========================================== ///
-/// -------------:FORD COCKPIT:--------------- ///
-/// ========================================== ///
-
-void ADReyeVRPawn::InitFordCockpit()
-{
-    try
-    {
-        io = new boost::asio::io_service();
-        serial = new boost::asio::serial_port(*io);
-
-        serial->open("COM3");
-        serial->set_option(boost::asio::serial_port_base::baud_rate(2000000));
-        OldFordData.Init(0, 29);
-        CurrentFordData.Init(0, 29);
-        bIsFordEstablished = true;
-    }
-    catch (boost::system::system_error& e)
-    {
-        UE_LOG(LogTemp, Error, TEXT("Error opening serial port: %s"), *FString(e.what()));
-        delete serial;
-        serial = nullptr;
-        delete io;
-        io = nullptr;
-    }
-}
-
-void ADReyeVRPawn::TickFordCockpit()
-{
-    if (!bIsFordEstablished)
-    {
-        InitFordCockpit();
-    }
-
-    FString dataLine = FordArduinoReadLine();
-    if (!dataLine.IsEmpty())
-    {
-        TArray<FString> dataStringArray;
-        dataLine.ParseIntoArray(dataStringArray, TEXT(","), true);
-        if (dataStringArray.Num() == 29)
-        {
-            for (int32 i = 0; i < dataStringArray.Num(); i++)
-            {
-                OldFordData[i] = CurrentFordData[i];
-                CurrentFordData[i] = FCString::Atoi(*dataStringArray[i]);
-            }
-        }
-    }
-
-    // Update the wheel in the driving simulator and manage button presses
-    if (!bOverrideInputsWithKbd)
-    {
-        FordWheelUpdate();
-    }
-    bOverrideInputsWithKbd = false; // disable for the next tick (unless held, which will set to true)
-}
-
-void ADReyeVRPawn::FordWheelUpdate() {
-    check(EgoVehicle);
-    ensure(bOverrideInputsWithKbd == false); // kbd inputs should be false
-
-    /// NOTE: obtained these manually by running tests: https://github.com/mimuc/FordDrivingSimulator/tree/main/Arduino/DrivingSim/Tests
-    // 180 to 820. 180 = all the way to the left. 820 = all the way to the right.
-    float WheelRotation = ScaleValue(CurrentFordData[5], 180, 820, -1, 1);
-    // 705 to 1025. 705 = pedal not pressed. 1025 = pedal fully pressed.
-    const float AccelerationPedal = ScaleValue(CurrentFordData[0], 705, 1025, 0, 1);
-    // 725 to 1010. Higher value = more pressure on brake pedal
-    const float BrakePedal = ScaleValue(CurrentFordData[1], 725, 1010, 0, 1);
-    
-    // The Ford cockpit data isn't the best in terms of data accuracy. Therefore, in order to counteract
-    // jittery effect when the steering wheel is at rest, some checks are added.
-    if (FMath::IsNearlyEqual(WheelRotation, 0.f, 0.01f))
-    {
-        WheelRotation = 0.f;
-    }
-
-    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
-    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
-    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
-
-    /// NOTE: directly calling the EgoVehicle functions
-    if (!EgoVehicle->GetAutopilotStatus())
-    {
-        EgoVehicle->AddSteering(WheelRotation);
-        EgoVehicle->AddThrottle(AccelerationPedal);
-        EgoVehicle->AddBrake(BrakePedal);
-    }
-    
-    // save the last values for the wheel & pedals
-    WheelRotationLast = WheelRotation;
-    AccelerationPedalLast = AccelerationPedal;
-    BrakePedalLast = BrakePedal;
-
-    ManageFordButtonPresses();
-}
-
-void ADReyeVRPawn::ManageFordButtonPresses()
-{
-    const bool bA = !static_cast<bool>(CurrentFordData[11]); // For some reason button press is 0, thus inverse is needed
-    const bool bB = !static_cast<bool>(CurrentFordData[10]); // For some reason button press is 0, thus inverse is needed
-
-    if (bA)
-        EgoVehicle->PressReverse();
-    else
-        EgoVehicle->ReleaseReverse();
-
-    bool bTurnSignalR = !static_cast<bool>(CurrentFordData[18]);
-    bool bTurnSignalL = !static_cast<bool>(CurrentFordData[19]);
-
-    if (bTurnSignalR)
-        EgoVehicle->PressTurnSignalR();
-    else
-        EgoVehicle->ReleaseTurnSignalR();
-
-    if (bTurnSignalL)
-        EgoVehicle->PressTurnSignalL();
-    else
-        EgoVehicle->ReleaseTurnSignalL();
-
-}
-
-float ADReyeVRPawn::ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax)
-{
-    // Ensure the input value is within the input range
-    InputValue = FMath::Clamp(InputValue, InputMin, InputMax);
-
-    // Scale the value
-    float ScaledValue = OutputMin + ((OutputMax - OutputMin) * (InputValue - InputMin)) / (InputMax - InputMin);
-
-    return FMath::Clamp(ScaledValue, OutputMin, OutputMax);
-}
-
-FString ADReyeVRPawn::FordArduinoReadLine()
-{
-    if (serial == nullptr || !serial->is_open())
-    {
-        return FString();
-    }
-
-    std::string data;
-    bool reading = false;
-
-    while (true)
-    {
-        boost::asio::streambuf buf;
-        try
-        {
-            boost::asio::read(*serial, buf, boost::asio::transfer_at_least(1));
-            std::istream is(&buf);
-            char c;
-            while (is.get(c))
-            {
-                if (c == '<')
-                {
-                    data.clear();
-                    reading = true;
-                }
-                else if (c == '>' && reading)
-                {
-                    return FString(data.c_str());
-                }
-                else if (reading)
-                {
-                    data += c;
-                }
-            }
-        }
-        catch (boost::system::system_error& e)
-        {
-            UE_LOG(LogTemp, Error, TEXT("Error reading from serial port: %s"), *FString(e.what()));
-            return FString();
-        }
-    }
-}
-
-
-void ADReyeVRPawn::LogFordData()
-{
-    FString logString;
-    for (int32 value : CurrentFordData)
-    {
-        logString += FString::Printf(TEXT("%d "), value);
-    }
-    UE_LOG(LogTemp, Log, TEXT("Received data: %s"), *logString);
-}
-
-/// ========================================== ///
 /// ---------------:LOGITECH:----------------- ///
 /// ========================================== ///
 
@@ -549,6 +362,17 @@ void ADReyeVRPawn::InitLogiWheel()
         FString LogiName(NameStr.c_str());
         LOG("Found a Logitech device (%s) connected on input %d", *LogiName, WheelDeviceIdx);
         free(NameBuffer); // no longer needed
+    }
+    else
+    {
+        const FString LogiError = "Could not find Logitech device connected on input 0";
+        const bool PrintToLog = false; // kinda annoying when flooding the logs with warning messages
+        const bool PrintToScreen = true;
+        const float ScreenDurationSec = 20.f;
+        const FLinearColor MsgColour = FLinearColor(1, 0, 0, 1); // RED
+        UKismetSystemLibrary::PrintString(World, LogiError, PrintToScreen, PrintToLog, MsgColour, ScreenDurationSec);
+        if (PrintToLog)
+            LOG_ERROR("%s", *LogiError); // Error is RED
     }
 #endif
 }
@@ -686,6 +510,8 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     // -1 = not pressed. 0 = Top. 0.25 = Right. 0.5 = Bottom. 0.75 = Left.
     const float Dpad = fabs(((WheelState->rgdwPOV[0] - 32767.0f) / (65535.0f)));
 
+    // NOTE: The vehicle status is already retrieved in NDRTTick(). No need to do it here again.
+
     // weird behaviour: "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input"
     // as per https://github.com/HARPLab/LogitechWheelPlugin
     if (bPedalsDefaulting)
@@ -698,47 +524,47 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         {
             bPedalsDefaulting = false;
         }
+        // GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
+
     }
     else
     {
-        /// NOTE: directly calling the EgoVehicle functions
-        if (EgoVehicle->GetAutopilotStatus() &&
-            (FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) &&
-             FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) &&
-             FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh)))
-        {
-            // let the autopilot drive if the user is not putting significant inputs
-            // ie. if their inputs are close enough to what was previously input
-            /// TODO: this system might break down if the autopilot is putting in sufficiently
-            ///       strong inputs, since the autopilot controls might might inadvertently
-            ///       be considered as human-input controls which amplifies the input and
-            ///       causes a positive cycle loop (which would be better avoided)
+        AEgoVehicle::VehicleStatus currStatus = EgoVehicle->GetCurrVehicleStatus();
+
+        // Check and update the vehicle status when necessary
+        if (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress) {
+            EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
         }
-        else
-        {
-            // driver has issued sufficient input to warrant manual takeover (disables autopilot)
-            EgoVehicle->SetAutopilot(false);
+
+        // The control modifications are performed in several conditions so we group them together
+        if (currStatus == AEgoVehicle::VehicleStatus::ManualDrive ||
+            currStatus == AEgoVehicle::VehicleStatus::TakeOverManual ||
+            (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress)) {
             EgoVehicle->AddSteering(WheelRotation);
             EgoVehicle->AddThrottle(AccelerationPedal);
             EgoVehicle->AddBrake(BrakePedal);
         }
+
     }
     // save the last values for the wheel & pedals
     WheelRotationLast = WheelRotation;
     AccelerationPedalLast = AccelerationPedal;
     BrakePedalLast = BrakePedal;
 
-    ManageLogiButtonPresses(*WheelState);
+    ManageButtonPresses(*WheelState);
 }
 
-void ADReyeVRPawn::ManageLogiButtonPresses(const DIJOYSTATE2 &WheelState)
+void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
 {
     const bool bABXY_A = static_cast<bool>(WheelState.rgbButtons[0]);
     const bool bABXY_B = static_cast<bool>(WheelState.rgbButtons[2]);
     const bool bABXY_X = static_cast<bool>(WheelState.rgbButtons[1]);
     const bool bABXY_Y = static_cast<bool>(WheelState.rgbButtons[3]);
 
-    if (bABXY_A || bABXY_B || bABXY_X || bABXY_Y)
+    const bool bRSB = static_cast<bool>(WheelState.rgbButtons[8]);
+    const bool bLSB = static_cast<bool>(WheelState.rgbButtons[9]);
+
+    if (bRSB || bLSB)
         EgoVehicle->PressReverse();
     else
         EgoVehicle->ReleaseReverse();
@@ -761,16 +587,20 @@ void ADReyeVRPawn::ManageLogiButtonPresses(const DIJOYSTATE2 &WheelState)
     else
         EgoVehicle->ReleaseTurnSignalL();
 
-    // if (WheelState.rgbButtons[23]) // big red button on right side of g923
 
     const bool bDPad_Up = (WheelState.rgdwPOV[0] == 0);
     const bool bDPad_Right = (WheelState.rgdwPOV[0] == 9000);
     const bool bDPad_Down = (WheelState.rgdwPOV[0] == 18000);
     const bool bDPad_Left = (WheelState.rgdwPOV[0] == 27000);
-    const bool bPositive = static_cast<bool>(WheelState.rgbButtons[19]);
-    const bool bNegative = static_cast<bool>(WheelState.rgbButtons[20]);
 
-    EgoVehicle->CameraPositionAdjust(bDPad_Up, bDPad_Right, bDPad_Down, bDPad_Left, bPositive, bNegative);
+    // Send the up and down joystick click events for the NDRT task
+    EgoVehicle->RecordPMInputs(bDPad_Up, bDPad_Down);
+    EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
+
+    // Record if the TOR button is pressed
+    EgoVehicle->CheckTORButtonPress(bABXY_A, bABXY_B, bABXY_X, bABXY_Y);
+
+
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Up, bDPad_Up);
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Right, bDPad_Right);
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Left, bDPad_Left);
