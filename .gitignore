@@ -29,6 +29,12 @@ Unreal/CarlaUE4/Config/OptionalModules.ini
 !Unreal/CarlaUE4/Plugins
 cmake-build-debug
 
+# added by FordDReyeVR to ignore script to test trial implementation
+PythonAPI/experiment/run_tests.py
+
+# Ignore logged data
+Unreal/CarlaUE4/NDRTPerformance/
+
 /ExportedMaps
 /Import/*
 !/Import/README.md
@@ -70,3 +76,4 @@ core
 profiler.csv
 CarlaUE4.xcworkspace
 OptionalModules.ini
+LibCarla
