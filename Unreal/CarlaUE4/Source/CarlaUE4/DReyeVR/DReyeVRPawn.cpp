@@ -554,17 +554,6 @@ void ADReyeVRPawn::InitLogiWheel()
         LOG("Found a Logitech device (%s) connected on input %d", *LogiName, WheelDeviceIdx);
         free(NameBuffer); // no longer needed
     }
-    else
-    {
-        const FString LogiError = "Could not find Logitech device connected on input 0";
-        const bool PrintToLog = false; // kinda annoying when flooding the logs with warning messages
-        const bool PrintToScreen = true;
-        const float ScreenDurationSec = 20.f;
-        const FLinearColor MsgColour = FLinearColor(1, 0, 0, 1); // RED
-        UKismetSystemLibrary::PrintString(World, LogiError, PrintToScreen, PrintToLog, MsgColour, ScreenDurationSec);
-        if (PrintToLog)
-            LOG_ERROR("%s", *LogiError); // Error is RED
-    }
 #endif
 }
 
