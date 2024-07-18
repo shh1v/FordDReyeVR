@@ -41,7 +41,7 @@ public class CarlaUE4 : ModuleRules
 
         PublicDefinitions.Add("BOOST_ALL_NO_LIB"); // Prevent Boost from auto-linking other libraries
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG", "MediaAssets", "ZeroMQ", "DataConfigCore", "Sockets", "Networking"});
 
         if (Target.Type == TargetType.Editor)
         {

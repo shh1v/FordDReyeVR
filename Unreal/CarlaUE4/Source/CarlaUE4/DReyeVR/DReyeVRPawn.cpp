@@ -23,9 +23,6 @@ ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(
     // spawn and construct the first person camera
     ConstructCamera();
 
-    // Inializing logging operator
-    //Logger = new DataLogger(); // This is now being handled by client side
-
     // log
     LOG("Spawning DReyeVR pawn for player0");
 }
@@ -554,10 +551,10 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     AccelerationPedalLast = AccelerationPedal;
     BrakePedalLast = BrakePedal;
 
-    ManageButtonPresses(*WheelState);
+    ManageLogiButtonPresses(*WheelState);
 }
 
-void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
+void ADReyeVRPawn::ManageLogiButtonPresses(const DIJOYSTATE2 &WheelState)
 {
     const bool bABXY_A = static_cast<bool>(WheelState.rgbButtons[0]);
     const bool bABXY_B = static_cast<bool>(WheelState.rgbButtons[2]);
@@ -721,9 +718,9 @@ void ADReyeVRPawn::FordWheelUpdate() {
         WheelRotation = 0.f;
     }
 
-    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
-    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
-    GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
+    // GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Wheel Rotation: %.2f"), WheelRotation), true, FVector2D(3.0f, 3.0f));
+    // GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
+    // GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
 
     /// NOTE: directly calling the EgoVehicle functions
     if (!EgoVehicle->GetAutopilotStatus())

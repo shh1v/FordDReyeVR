@@ -3,6 +3,7 @@
 #include "Camera/CameraComponent.h" // UCameraComponent
 #include "Engine/Scene.h"           // FPostProcessSettings
 #include "GameFramework/Pawn.h"     // CreatePlayerInputComponent
+#include <boost/asio.hpp>
 
 #ifndef _WIN32
 // can only use LogitechWheel plugin on Windows! :(
