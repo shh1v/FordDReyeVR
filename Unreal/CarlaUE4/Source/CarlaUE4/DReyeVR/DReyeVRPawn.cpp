@@ -1,9 +1,8 @@
 #include "DReyeVRPawn.h"
 #include "DReyeVRUtils.h"                      // CreatePostProcessingEffect
-#include "EgoVehicle.h"                        // AEgoVehicle
+#include "EgoVehicle.h"                        // AEgoVehicle, and some singals for data logging
 #include "HeadMountedDisplayFunctionLibrary.h" // SetTrackingOrigin, GetWorldToMetersScale
 #include "HeadMountedDisplayTypes.h"           // ESpectatorScreenMode
-#include "Materials/MaterialInstanceDynamic.h" // UMaterialInstanceDynamic
 #include "UObject/UObjectGlobals.h"            // LoadObject, NewObject
 
 ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(ObjectInitializer)
@@ -23,6 +22,9 @@ ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(
 
     // spawn and construct the first person camera
     ConstructCamera();
+
+    // Inializing logging operator
+    //Logger = new DataLogger(); // This is now being handled by client side
 
     // log
     LOG("Spawning DReyeVR pawn for player0");
@@ -341,6 +343,309 @@ void ADReyeVRPawn::DrawFlatHUD(float DeltaSeconds)
 }
 
 /// ========================================== ///
+/// ---------------:LOGITECH:----------------- ///
+/// ========================================== ///
+
+void ADReyeVRPawn::InitLogiWheel()
+{
+#if USE_LOGITECH_PLUGIN
+    LogiSteeringInitialize(false);
+    bIsLogiConnected = LogiIsConnected(WheelDeviceIdx); // get status of connected device
+    if (bIsLogiConnected)
+    {
+        const size_t n = 1000; // name shouldn't be more than 1000 chars right?
+        wchar_t *NameBuffer = (wchar_t *)malloc(n * sizeof(wchar_t));
+        if (LogiGetFriendlyProductName(WheelDeviceIdx, NameBuffer, n) == false)
+        {
+            LOG_WARN("Unable to get Logi friendly name!");
+            NameBuffer = L"Unknown";
+        }
+        std::wstring wNameStr(NameBuffer, n);
+        std::string NameStr(wNameStr.begin(), wNameStr.end());
+        FString LogiName(NameStr.c_str());
+        LOG("Found a Logitech device (%s) connected on input %d", *LogiName, WheelDeviceIdx);
+        free(NameBuffer); // no longer needed
+    }
+    else
+    {
+        const FString LogiError = "Could not find Logitech device connected on input 0";
+        const bool PrintToLog = false; // kinda annoying when flooding the logs with warning messages
+        const bool PrintToScreen = true;
+        const float ScreenDurationSec = 20.f;
+        const FLinearColor MsgColour = FLinearColor(1, 0, 0, 1); // RED
+        UKismetSystemLibrary::PrintString(World, LogiError, PrintToScreen, PrintToLog, MsgColour, ScreenDurationSec);
+        if (PrintToLog)
+            LOG_ERROR("%s", *LogiError); // Error is RED
+    }
+#endif
+}
+
+void ADReyeVRPawn::DestroyLogiWheel(bool DestroyModule)
+{
+#if USE_LOGITECH_PLUGIN
+    if (bIsLogiConnected)
+    {
+        // stop any forces on the wheel (we only use spring force feedback)
+        LogiStopSpringForce(WheelDeviceIdx);
+
+        if (DestroyModule) // only destroy the module at the end of the game (not ego life)
+        {
+            // shutdown the entire module (dangerous bc lingering pointers)
+            LogiSteeringShutdown();
+        }
+    }
+#endif
+}
+
+void ADReyeVRPawn::TickLogiWheel()
+{
+    if (EgoVehicle == nullptr)
+        return;
+    // first try to initialize the Logi hardware if not currently active
+    if (!bIsLogiConnected)
+    {
+        InitLogiWheel();
+    }
+#if USE_LOGITECH_PLUGIN
+    bIsLogiConnected = LogiIsConnected(WheelDeviceIdx); // get status of connected device
+    if (bIsLogiConnected && bOverrideInputsWithKbd == false)
+    {
+        // Taking logitech inputs for steering
+        LogitechWheelUpdate();
+
+        // Add Force Feedback to the hardware steering wheel when a LogitechWheel is used
+        ApplyForceFeedback();
+    }
+    bOverrideInputsWithKbd = false; // disable for the next tick (unless held, which will set to true)
+#endif
+}
+
+#if USE_LOGITECH_PLUGIN
+
+// const std::vector<FString> VarNames = {"rgdwPOV[0]", "rgdwPOV[1]", "rgdwPOV[2]", "rgdwPOV[3]"};
+const std::vector<FString> VarNames = {                                                    // 34 values
+    "lX",           "lY",           "lZ",         "lRz",           "lRy",           "lRz", // variable names
+    "rglSlider[0]", "rglSlider[1]", "rgdwPOV[0]", "rgbButtons[0]", "lVX",           "lVY",           "lVZ",
+    "lVRx",         "lVRy",         "lVRz",       "rglVSlider[0]", "rglVSlider[1]", "lAX",           "lAY",
+    "lAZ",          "lARx",         "lARy",       "lARz",          "rglASlider[0]", "rglASlider[1]", "lFX",
+    "lFY",          "lFZ",          "lFRx",       "lFRy",          "lFRz",          "rglFSlider[0]", "rglFSlider[1]"};
+/// NOTE: this is a debug function used to dump all the information we can regarding
+// the Logitech wheel hardware we used since the exact buttons were not documented in
+// the repo: https://github.com/HARPLab/LogitechWheelPlugin
+void ADReyeVRPawn::LogLogitechPluginStruct(const struct DIJOYSTATE2 *Now)
+{
+    if (Old == nullptr)
+    {
+        Old = new struct DIJOYSTATE2;
+        (*Old) = (*Now); // assign to the new (current) dijoystate struct
+        return;          // initializing the Old struct ptr
+    }
+    const std::vector<int> NowVals = {
+        Now->lX, Now->lY, Now->lZ, Now->lRx, Now->lRy, Now->lRz, Now->rglSlider[0], Now->rglSlider[1],
+        // Converting unsigned int & unsigned char to int
+        int(Now->rgdwPOV[0]), int(Now->rgbButtons[0]), Now->lVX, Now->lVY, Now->lVZ, Now->lVRx, Now->lVRy, Now->lVRz,
+        Now->rglVSlider[0], Now->rglVSlider[1], Now->lAX, Now->lAY, Now->lAZ, Now->lARx, Now->lARy, Now->lARz,
+        Now->rglASlider[0], Now->rglASlider[1], Now->lFX, Now->lFY, Now->lFZ, Now->lFRx, Now->lFRy, Now->lFRz,
+        Now->rglFSlider[0], Now->rglFSlider[1]}; // 32 elements
+    // Getting the (34) values from the old struct
+    const std::vector<int> OldVals = {
+        Old->lX, Old->lY, Old->lZ, Old->lRx, Old->lRy, Old->lRz, Old->rglSlider[0], Old->rglSlider[1],
+        // Converting unsigned int & unsigned char to int
+        int(Old->rgdwPOV[0]), int(Old->rgbButtons[0]), Old->lVX, Old->lVY, Old->lVZ, Old->lVRx, Old->lVRy, Old->lVRz,
+        Old->rglVSlider[0], Old->rglVSlider[1], Old->lAX, Old->lAY, Old->lAZ, Old->lARx, Old->lARy, Old->lARz,
+        Old->rglASlider[0], Old->rglASlider[1], Old->lFX, Old->lFY, Old->lFZ, Old->lFRx, Old->lFRy, Old->lFRz,
+        Old->rglFSlider[0], Old->rglFSlider[1]};
+
+    check(NowVals.size() == OldVals.size() && NowVals.size() == VarNames.size());
+
+    // print any differences
+    bool isDiff = false;
+    for (size_t i = 0; i < NowVals.size(); i++)
+    {
+        if (NowVals[i] != OldVals[i])
+        {
+            if (!isDiff) // only gets triggered at MOST once
+            {
+                LOG("Logging joystick at t=%.3f", UGameplayStatics::GetRealTimeSeconds(World));
+                isDiff = true;
+            }
+            LOG("Triggered \"%s\" from %d to %d", *(VarNames[i]), OldVals[i], NowVals[i]);
+        }
+    }
+
+    // also check the 128 rgbButtons array
+    for (size_t i = 0; i < 127; i++)
+    {
+        if (Old->rgbButtons[i] != Now->rgbButtons[i])
+        {
+            if (!isDiff) // only gets triggered at MOST once
+            {
+                LOG("Logging joystick at t=%.3f", UGameplayStatics::GetRealTimeSeconds(World));
+                isDiff = true;
+            }
+            LOG("Triggered \"rgbButtons[%d]\" from %d to %d", int(i), int(OldVals[i]), int(NowVals[i]));
+        }
+    }
+
+    // assign the current joystate into the old one
+    (*Old) = (*Now);
+}
+
+void ADReyeVRPawn::LogitechWheelUpdate()
+{
+    check(EgoVehicle);
+    ensure(bOverrideInputsWithKbd == false); // kbd inputs should be false
+
+    // only execute this in Windows, the Logitech plugin is incompatible with Linux
+    if (LogiUpdate() == false) // update the logitech wheel
+        LOG_WARN("Logitech wheel %d failed to update!", WheelDeviceIdx);
+    DIJOYSTATE2 *WheelState = LogiGetState(WheelDeviceIdx);
+    ensure(WheelState != nullptr);
+    if (bLogLogitechWheel)
+        LogLogitechPluginStruct(WheelState);
+    /// NOTE: obtained these from LogitechWheelInputDevice.cpp:~111
+    // -32768 to 32767. -32768 = all the way to the left. 32767 = all the way to the right.
+    const float WheelRotation = FMath::Clamp(float(WheelState->lX), -32767.0f, 32767.0f) / 32767.0f; // (-1, 1)
+    // -32768 to 32767. 32767 = pedal not pressed. -32768 = pedal fully pressed.
+    const float AccelerationPedal = fabs(((WheelState->lY - 32767.0f) / (65535.0f))); // (0, 1)
+    // -32768 to 32767. Higher value = less pressure on brake pedal
+    const float BrakePedal = fabs(((WheelState->lRz - 32767.0f) / (65535.0f))); // (0, 1)
+    // -1 = not pressed. 0 = Top. 0.25 = Right. 0.5 = Bottom. 0.75 = Left.
+    const float Dpad = fabs(((WheelState->rgdwPOV[0] - 32767.0f) / (65535.0f)));
+
+    // NOTE: The vehicle status is already retrieved in NDRTTick(). No need to do it here again.
+
+    // weird behaviour: "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input"
+    // as per https://github.com/HARPLab/LogitechWheelPlugin
+    if (bPedalsDefaulting)
+    {
+        // this bPedalsDefaulting flag is initially set to not send inputs when the pedals are "defaulting", once the
+        // pedals/wheel is used (pressed/turned) once then this flag is ignored (false) for the remainder of the game
+        if (!FMath::IsNearlyEqual(WheelRotation, 0.f, LogiThresh) ||      // wheel is not at 0 (rest)
+            !FMath::IsNearlyEqual(AccelerationPedal, 0.5f, LogiThresh) || // accel pedal is pressed
+            !FMath::IsNearlyEqual(BrakePedal, 0.5f, LogiThresh))          // brake pedal is pressed
+        {
+            bPedalsDefaulting = false;
+        }
+        // GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
+
+    }
+    else
+    {
+        AEgoVehicle::VehicleStatus currStatus = EgoVehicle->GetCurrVehicleStatus();
+
+        // Check and update the vehicle status when necessary
+        if (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress) {
+            EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
+        }
+
+        // The control modifications are performed in several conditions so we group them together
+        if (currStatus == AEgoVehicle::VehicleStatus::ManualDrive ||
+            currStatus == AEgoVehicle::VehicleStatus::TakeOverManual ||
+            (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress)) {
+            EgoVehicle->AddSteering(WheelRotation);
+            EgoVehicle->AddThrottle(AccelerationPedal);
+            EgoVehicle->AddBrake(BrakePedal);
+        }
+
+    }
+    // save the last values for the wheel & pedals
+    WheelRotationLast = WheelRotation;
+    AccelerationPedalLast = AccelerationPedal;
+    BrakePedalLast = BrakePedal;
+
+    ManageButtonPresses(*WheelState);
+}
+
+void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
+{
+    const bool bABXY_A = static_cast<bool>(WheelState.rgbButtons[0]);
+    const bool bABXY_B = static_cast<bool>(WheelState.rgbButtons[2]);
+    const bool bABXY_X = static_cast<bool>(WheelState.rgbButtons[1]);
+    const bool bABXY_Y = static_cast<bool>(WheelState.rgbButtons[3]);
+
+    const bool bRSB = static_cast<bool>(WheelState.rgbButtons[8]);
+    const bool bLSB = static_cast<bool>(WheelState.rgbButtons[9]);
+
+    if (bRSB || bLSB)
+        EgoVehicle->PressReverse();
+    else
+        EgoVehicle->ReleaseReverse();
+
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_A, bABXY_A);
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_B, bABXY_B);
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_X, bABXY_X);
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_Y, bABXY_Y);
+
+    bool bTurnSignalR = static_cast<bool>(WheelState.rgbButtons[4]);
+    bool bTurnSignalL = static_cast<bool>(WheelState.rgbButtons[5]);
+
+    if (bTurnSignalR)
+        EgoVehicle->PressTurnSignalR();
+    else
+        EgoVehicle->ReleaseTurnSignalR();
+
+    if (bTurnSignalL)
+        EgoVehicle->PressTurnSignalL();
+    else
+        EgoVehicle->ReleaseTurnSignalL();
+
+
+    const bool bDPad_Up = (WheelState.rgdwPOV[0] == 0);
+    const bool bDPad_Right = (WheelState.rgdwPOV[0] == 9000);
+    const bool bDPad_Down = (WheelState.rgdwPOV[0] == 18000);
+    const bool bDPad_Left = (WheelState.rgdwPOV[0] == 27000);
+
+    // Send the up and down joystick click events for the NDRT task
+    EgoVehicle->RecordPMInputs(bDPad_Up, bDPad_Down);
+    EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
+
+    // Record if the TOR button is pressed
+    EgoVehicle->CheckTORButtonPress(bABXY_A, bABXY_B, bABXY_X, bABXY_Y);
+
+
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Up, bDPad_Up);
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Right, bDPad_Right);
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Left, bDPad_Left);
+    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Down, bDPad_Down);
+}
+
+void ADReyeVRPawn::ApplyForceFeedback() const
+{
+    check(EgoVehicle);
+
+    // only execute this in Windows, the Logitech plugin is incompatible with Linux
+    // const float Speed = EgoVehicle->GetVelocity().Size(); // get magnitude of self (AActor's) velocity
+    /// TODO: move outside this function (in tick()) to avoid redundancy
+    if (bIsLogiConnected && LogiHasForceFeedback(WheelDeviceIdx))
+    {
+        // actuate the logi wheel to match the autopilot steering
+        float RawWheel = EgoVehicle->GetWheelSteerAngle(EVehicleWheelLocation::Front_Wheel);
+        // "Specifies the center of the spring force effect"
+        const int OffsetPercentage = static_cast<int>(RawWheel * 0.5f);
+        const int CoeffPercentage = 100; // "Slope of the effect strength increase relative to deflection from Offset"
+        LogiPlaySpringForce(WheelDeviceIdx, OffsetPercentage, SaturationPercentage, CoeffPercentage);
+    }
+    else
+    {
+        LogiStopSpringForce(WheelDeviceIdx);
+    }
+    /// NOTE: there are other kinds of forces as described in the LogitechWheelPlugin API:
+    // https://github.com/HARPLab/LogitechWheelPlugin/blob/master/LogitechWheelPlugin/Source/LogitechWheelPlugin/Private/LogitechBWheelInputDevice.cpp
+    // For example:
+    /*
+        Force Types
+        0 = Spring				5 = Dirt Road
+        1 = Constant			6 = Bumpy Road
+        2 = Damper				7 = Slippery Road
+        3 = Side Collision		8 = Surface Effect
+        4 = Frontal Collision	9 = Car Airborne
+    */
+}
+#endif
+
+
+/// ========================================== ///
 /// -------------:FORD COCKPIT:--------------- ///
 /// ========================================== ///
 
@@ -525,291 +830,6 @@ void ADReyeVRPawn::LogFordData()
     }
     UE_LOG(LogTemp, Log, TEXT("Received data: %s"), *logString);
 }
-
-/// ========================================== ///
-/// ---------------:LOGITECH:----------------- ///
-/// ========================================== ///
-
-void ADReyeVRPawn::InitLogiWheel()
-{
-#if USE_LOGITECH_PLUGIN
-    LogiSteeringInitialize(false);
-    bIsLogiConnected = LogiIsConnected(WheelDeviceIdx); // get status of connected device
-    if (bIsLogiConnected)
-    {
-        const size_t n = 1000; // name shouldn't be more than 1000 chars right?
-        wchar_t *NameBuffer = (wchar_t *)malloc(n * sizeof(wchar_t));
-        if (LogiGetFriendlyProductName(WheelDeviceIdx, NameBuffer, n) == false)
-        {
-            LOG_WARN("Unable to get Logi friendly name!");
-            NameBuffer = L"Unknown";
-        }
-        std::wstring wNameStr(NameBuffer, n);
-        std::string NameStr(wNameStr.begin(), wNameStr.end());
-        FString LogiName(NameStr.c_str());
-        LOG("Found a Logitech device (%s) connected on input %d", *LogiName, WheelDeviceIdx);
-        free(NameBuffer); // no longer needed
-    }
-#endif
-}
-
-void ADReyeVRPawn::DestroyLogiWheel(bool DestroyModule)
-{
-#if USE_LOGITECH_PLUGIN
-    if (bIsLogiConnected)
-    {
-        // stop any forces on the wheel (we only use spring force feedback)
-        LogiStopSpringForce(WheelDeviceIdx);
-
-        if (DestroyModule) // only destroy the module at the end of the game (not ego life)
-        {
-            // shutdown the entire module (dangerous bc lingering pointers)
-            LogiSteeringShutdown();
-        }
-    }
-#endif
-}
-
-void ADReyeVRPawn::TickLogiWheel()
-{
-    if (EgoVehicle == nullptr)
-        return;
-    // first try to initialize the Logi hardware if not currently active
-    if (!bIsLogiConnected)
-    {
-        InitLogiWheel();
-    }
-#if USE_LOGITECH_PLUGIN
-    bIsLogiConnected = LogiIsConnected(WheelDeviceIdx); // get status of connected device
-    if (bIsLogiConnected && bOverrideInputsWithKbd == false)
-    {
-        // Taking logitech inputs for steering
-        LogitechWheelUpdate();
-
-        // Add Force Feedback to the hardware steering wheel when a LogitechWheel is used
-        ApplyForceFeedback();
-    }
-    bOverrideInputsWithKbd = false; // disable for the next tick (unless held, which will set to true)
-#endif
-}
-
-#if USE_LOGITECH_PLUGIN
-
-// const std::vector<FString> VarNames = {"rgdwPOV[0]", "rgdwPOV[1]", "rgdwPOV[2]", "rgdwPOV[3]"};
-const std::vector<FString> VarNames = {                                                    // 34 values
-    "lX",           "lY",           "lZ",         "lRz",           "lRy",           "lRz", // variable names
-    "rglSlider[0]", "rglSlider[1]", "rgdwPOV[0]", "rgbButtons[0]", "lVX",           "lVY",           "lVZ",
-    "lVRx",         "lVRy",         "lVRz",       "rglVSlider[0]", "rglVSlider[1]", "lAX",           "lAY",
-    "lAZ",          "lARx",         "lARy",       "lARz",          "rglASlider[0]", "rglASlider[1]", "lFX",
-    "lFY",          "lFZ",          "lFRx",       "lFRy",          "lFRz",          "rglFSlider[0]", "rglFSlider[1]"};
-/// NOTE: this is a debug function used to dump all the information we can regarding
-// the Logitech wheel hardware we used since the exact buttons were not documented in
-// the repo: https://github.com/HARPLab/LogitechWheelPlugin
-void ADReyeVRPawn::LogLogitechPluginStruct(const struct DIJOYSTATE2 *Now)
-{
-    if (Old == nullptr)
-    {
-        Old = new struct DIJOYSTATE2;
-        (*Old) = (*Now); // assign to the new (current) dijoystate struct
-        return;          // initializing the Old struct ptr
-    }
-    const std::vector<int> NowVals = {
-        Now->lX, Now->lY, Now->lZ, Now->lRx, Now->lRy, Now->lRz, Now->rglSlider[0], Now->rglSlider[1],
-        // Converting unsigned int & unsigned char to int
-        int(Now->rgdwPOV[0]), int(Now->rgbButtons[0]), Now->lVX, Now->lVY, Now->lVZ, Now->lVRx, Now->lVRy, Now->lVRz,
-        Now->rglVSlider[0], Now->rglVSlider[1], Now->lAX, Now->lAY, Now->lAZ, Now->lARx, Now->lARy, Now->lARz,
-        Now->rglASlider[0], Now->rglASlider[1], Now->lFX, Now->lFY, Now->lFZ, Now->lFRx, Now->lFRy, Now->lFRz,
-        Now->rglFSlider[0], Now->rglFSlider[1]}; // 32 elements
-    // Getting the (34) values from the old struct
-    const std::vector<int> OldVals = {
-        Old->lX, Old->lY, Old->lZ, Old->lRx, Old->lRy, Old->lRz, Old->rglSlider[0], Old->rglSlider[1],
-        // Converting unsigned int & unsigned char to int
-        int(Old->rgdwPOV[0]), int(Old->rgbButtons[0]), Old->lVX, Old->lVY, Old->lVZ, Old->lVRx, Old->lVRy, Old->lVRz,
-        Old->rglVSlider[0], Old->rglVSlider[1], Old->lAX, Old->lAY, Old->lAZ, Old->lARx, Old->lARy, Old->lARz,
-        Old->rglASlider[0], Old->rglASlider[1], Old->lFX, Old->lFY, Old->lFZ, Old->lFRx, Old->lFRy, Old->lFRz,
-        Old->rglFSlider[0], Old->rglFSlider[1]};
-
-    check(NowVals.size() == OldVals.size() && NowVals.size() == VarNames.size());
-
-    // print any differences
-    bool isDiff = false;
-    for (size_t i = 0; i < NowVals.size(); i++)
-    {
-        if (NowVals[i] != OldVals[i])
-        {
-            if (!isDiff) // only gets triggered at MOST once
-            {
-                LOG("Logging joystick at t=%.3f", UGameplayStatics::GetRealTimeSeconds(World));
-                isDiff = true;
-            }
-            LOG("Triggered \"%s\" from %d to %d", *(VarNames[i]), OldVals[i], NowVals[i]);
-        }
-    }
-
-    // also check the 128 rgbButtons array
-    for (size_t i = 0; i < 127; i++)
-    {
-        if (Old->rgbButtons[i] != Now->rgbButtons[i])
-        {
-            if (!isDiff) // only gets triggered at MOST once
-            {
-                LOG("Logging joystick at t=%.3f", UGameplayStatics::GetRealTimeSeconds(World));
-                isDiff = true;
-            }
-            LOG("Triggered \"rgbButtons[%d]\" from %d to %d", int(i), int(OldVals[i]), int(NowVals[i]));
-        }
-    }
-
-    // assign the current joystate into the old one
-    (*Old) = (*Now);
-}
-
-void ADReyeVRPawn::LogitechWheelUpdate()
-{
-    check(EgoVehicle);
-    ensure(bOverrideInputsWithKbd == false); // kbd inputs should be false
-
-    // only execute this in Windows, the Logitech plugin is incompatible with Linux
-    if (LogiUpdate() == false) // update the logitech wheel
-        LOG_WARN("Logitech wheel %d failed to update!", WheelDeviceIdx);
-    DIJOYSTATE2 *WheelState = LogiGetState(WheelDeviceIdx);
-    ensure(WheelState != nullptr);
-    if (bLogLogitechWheel)
-        LogLogitechPluginStruct(WheelState);
-    /// NOTE: obtained these from LogitechWheelInputDevice.cpp:~111
-    // -32768 to 32767. -32768 = all the way to the left. 32767 = all the way to the right.
-    const float WheelRotation = FMath::Clamp(float(WheelState->lX), -32767.0f, 32767.0f) / 32767.0f; // (-1, 1)
-    // -32768 to 32767. 32767 = pedal not pressed. -32768 = pedal fully pressed.
-    const float AccelerationPedal = fabs(((WheelState->lY - 32767.0f) / (65535.0f))); // (0, 1)
-    // -32768 to 32767. Higher value = less pressure on brake pedal
-    const float BrakePedal = fabs(((WheelState->lRz - 32767.0f) / (65535.0f))); // (0, 1)
-    // -1 = not pressed. 0 = Top. 0.25 = Right. 0.5 = Bottom. 0.75 = Left.
-    const float Dpad = fabs(((WheelState->rgdwPOV[0] - 32767.0f) / (65535.0f)));
-
-    // weird behaviour: "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input"
-    // as per https://github.com/HARPLab/LogitechWheelPlugin
-    if (bPedalsDefaulting)
-    {
-        // this bPedalsDefaulting flag is initially set to not send inputs when the pedals are "defaulting", once the
-        // pedals/wheel is used (pressed/turned) once then this flag is ignored (false) for the remainder of the game
-        if (!FMath::IsNearlyEqual(WheelRotation, 0.f, LogiThresh) ||      // wheel is not at 0 (rest)
-            !FMath::IsNearlyEqual(AccelerationPedal, 0.5f, LogiThresh) || // accel pedal is pressed
-            !FMath::IsNearlyEqual(BrakePedal, 0.5f, LogiThresh))          // brake pedal is pressed
-        {
-            bPedalsDefaulting = false;
-        }
-    }
-    else
-    {
-        /// NOTE: directly calling the EgoVehicle functions
-        if (EgoVehicle->GetAutopilotStatus() &&
-            (FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) &&
-             FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) &&
-             FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh)))
-        {
-            // let the autopilot drive if the user is not putting significant inputs
-            // ie. if their inputs are close enough to what was previously input
-            /// TODO: this system might break down if the autopilot is putting in sufficiently
-            ///       strong inputs, since the autopilot controls might might inadvertently
-            ///       be considered as human-input controls which amplifies the input and
-            ///       causes a positive cycle loop (which would be better avoided)
-        }
-        else
-        {
-            // driver has issued sufficient input to warrant manual takeover (disables autopilot)
-            EgoVehicle->SetAutopilot(false);
-            EgoVehicle->AddSteering(WheelRotation);
-            EgoVehicle->AddThrottle(AccelerationPedal);
-            EgoVehicle->AddBrake(BrakePedal);
-        }
-    }
-    // save the last values for the wheel & pedals
-    WheelRotationLast = WheelRotation;
-    AccelerationPedalLast = AccelerationPedal;
-    BrakePedalLast = BrakePedal;
-
-    ManageLogiButtonPresses(*WheelState);
-}
-
-void ADReyeVRPawn::ManageLogiButtonPresses(const DIJOYSTATE2 &WheelState)
-{
-    const bool bABXY_A = static_cast<bool>(WheelState.rgbButtons[0]);
-    const bool bABXY_B = static_cast<bool>(WheelState.rgbButtons[2]);
-    const bool bABXY_X = static_cast<bool>(WheelState.rgbButtons[1]);
-    const bool bABXY_Y = static_cast<bool>(WheelState.rgbButtons[3]);
-
-    if (bABXY_A || bABXY_B || bABXY_X || bABXY_Y)
-        EgoVehicle->PressReverse();
-    else
-        EgoVehicle->ReleaseReverse();
-
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_A, bABXY_A);
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_B, bABXY_B);
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_X, bABXY_X);
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_ABXY_Y, bABXY_Y);
-
-    bool bTurnSignalR = static_cast<bool>(WheelState.rgbButtons[4]);
-    bool bTurnSignalL = static_cast<bool>(WheelState.rgbButtons[5]);
-
-    if (bTurnSignalR)
-        EgoVehicle->PressTurnSignalR();
-    else
-        EgoVehicle->ReleaseTurnSignalR();
-
-    if (bTurnSignalL)
-        EgoVehicle->PressTurnSignalL();
-    else
-        EgoVehicle->ReleaseTurnSignalL();
-
-    // if (WheelState.rgbButtons[23]) // big red button on right side of g923
-
-    const bool bDPad_Up = (WheelState.rgdwPOV[0] == 0);
-    const bool bDPad_Right = (WheelState.rgdwPOV[0] == 9000);
-    const bool bDPad_Down = (WheelState.rgdwPOV[0] == 18000);
-    const bool bDPad_Left = (WheelState.rgdwPOV[0] == 27000);
-    const bool bPositive = static_cast<bool>(WheelState.rgbButtons[19]);
-    const bool bNegative = static_cast<bool>(WheelState.rgbButtons[20]);
-
-    EgoVehicle->CameraPositionAdjust(bDPad_Up, bDPad_Right, bDPad_Down, bDPad_Left, bPositive, bNegative);
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Up, bDPad_Up);
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Right, bDPad_Right);
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Left, bDPad_Left);
-    EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Down, bDPad_Down);
-}
-
-void ADReyeVRPawn::ApplyForceFeedback() const
-{
-    check(EgoVehicle);
-
-    // only execute this in Windows, the Logitech plugin is incompatible with Linux
-    // const float Speed = EgoVehicle->GetVelocity().Size(); // get magnitude of self (AActor's) velocity
-    /// TODO: move outside this function (in tick()) to avoid redundancy
-    if (bIsLogiConnected && LogiHasForceFeedback(WheelDeviceIdx))
-    {
-        // actuate the logi wheel to match the autopilot steering
-        float RawWheel = EgoVehicle->GetWheelSteerAngle(EVehicleWheelLocation::Front_Wheel);
-        // "Specifies the center of the spring force effect"
-        const int OffsetPercentage = static_cast<int>(RawWheel * 0.5f);
-        const int CoeffPercentage = 100; // "Slope of the effect strength increase relative to deflection from Offset"
-        LogiPlaySpringForce(WheelDeviceIdx, OffsetPercentage, SaturationPercentage, CoeffPercentage);
-    }
-    else
-    {
-        LogiStopSpringForce(WheelDeviceIdx);
-    }
-    /// NOTE: there are other kinds of forces as described in the LogitechWheelPlugin API:
-    // https://github.com/HARPLab/LogitechWheelPlugin/blob/master/LogitechWheelPlugin/Source/LogitechWheelPlugin/Private/LogitechBWheelInputDevice.cpp
-    // For example:
-    /*
-        Force Types
-        0 = Spring				5 = Dirt Road
-        1 = Constant			6 = Bumpy Road
-        2 = Damper				7 = Slippery Road
-        3 = Side Collision		8 = Surface Effect
-        4 = Frontal Collision	9 = Car Airborne
-    */
-}
-#endif
 
 /// ========================================== ///
 /// --------------:INPUTRELAY:---------------- ///

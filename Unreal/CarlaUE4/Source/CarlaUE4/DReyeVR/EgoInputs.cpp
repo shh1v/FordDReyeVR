@@ -251,6 +251,11 @@ void AEgoVehicle::ReleaseTurnSignalL()
     bCanPressTurnSignalL = true;
 }
 
+void AEgoVehicle::CheckTORButtonPress(bool bABXY_A, bool bABXY_B, bool bABXY_X, bool bABXY_Y)
+{
+    bTakeOverPress = bTakeOverPress || bABXY_A || bABXY_B || bABXY_X || bABXY_Y;
+}
+
 void AEgoVehicle::TickVehicleInputs()
 {
     FVehicleControl LastAppliedControl = GetVehicleControl();
@@ -263,16 +268,16 @@ void AEgoVehicle::TickVehicleInputs()
     ManualInputs.Throttle = VehicleInputs.Throttle + bIncludeLast * LastAppliedControl.Throttle;
     ManualInputs.bReverse = bReverse;
 
-    // apply inputs to this vehicle only when either one of the parameter is non-zero or autopilot is on
-    if ((!FMath::IsNearlyEqual(ManualInputs.Steer, 0.f, 0.03f) ||
+    // Only apply vehicle when the ManualInput parameters are non-zero
+    // If we are at this point of execution, the pedals will not be defaulting
+    if (!FMath::IsNearlyEqual(ManualInputs.Steer, 0.f, 0.02f) ||
         !FMath::IsNearlyEqual(ManualInputs.Brake, 0.f, 0.02f) ||
-        !FMath::IsNearlyEqual(ManualInputs.Throttle, 0.f, 0.02f)) ||
+        !FMath::IsNearlyEqual(ManualInputs.Throttle, 0.f, 0.02f) ||
         GetAutopilotStatus())
     {
         this->ApplyVehicleControl(ManualInputs, EVehicleInputPriority::User);
         // send these inputs to the Carla (parent) vehicle
         FlushVehicleControl();
     }
-
     VehicleInputs = DReyeVR::UserInputs(); // clear inputs for this frame
 }
