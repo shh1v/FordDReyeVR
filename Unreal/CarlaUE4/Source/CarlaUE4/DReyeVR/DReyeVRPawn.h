@@ -141,6 +141,11 @@ class ADReyeVRPawn : public APawn
     TArray<int32> CurrentFordData;
     bool bIsFordEstablished = false;
 
+  public:
+          void TerminateFordCockpit(); // This will be called by the EgoVehicle on world reload/destroy.
+
+  private:
+
     ////////////////:LOGI:////////////////
     void InitLogiWheel();
     void TickLogiWheel();
