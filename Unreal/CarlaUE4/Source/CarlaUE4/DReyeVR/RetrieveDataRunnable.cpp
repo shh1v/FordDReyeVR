@@ -35,7 +35,7 @@ uint32 RetrieveDataRunnable::Run()
 
     // Establish connections with the required ports
         
-    EgoVehicle->EstablishEyeTrackerConnection();    // Establish connection with the eye-tracker
+    //EgoVehicle->EstablishEyeTrackerConnection();    // Establish connection with the eye-tracker
     EgoVehicle->EstablishVehicleStatusConnection(); // Establish vehicle status connection
 
     FPlatformProcess::Sleep(0.1); // Wait for sometime to ensure connection has been established
@@ -49,7 +49,7 @@ uint32 RetrieveDataRunnable::Run()
         if (EgoVehicle != nullptr)
         {
 			// Retrieve all the data from the pupil eye tracker
-            EgoVehicle->RetrieveOnSurf();
+            //EgoVehicle->RetrieveOnSurf();
 
             // Send the current locally stored vehicle status
             EgoVehicle->SendCurrVehicleStatus();
@@ -60,7 +60,7 @@ uint32 RetrieveDataRunnable::Run()
     }
 
     // Terminate all the port connections to use it later for next game launch
-    EgoVehicle->TerminateEyeTrackerConnection();
+    //EgoVehicle->TerminateEyeTrackerConnection();
     EgoVehicle->TerminateVehicleStatusConnection();
 
     // Sleep for some time

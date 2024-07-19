@@ -6,6 +6,10 @@ TrafficManager/build
 Util/Build
 Install
 Plugins
+
+# added so that PythonAPI works properly for multiple projects.
+!PythonAPI/carla/dist/**
+
 # added by DReyeVR so only Carla plugins are tracked
 !Unreal/CarlaUE4/Plugins/Carla*
 

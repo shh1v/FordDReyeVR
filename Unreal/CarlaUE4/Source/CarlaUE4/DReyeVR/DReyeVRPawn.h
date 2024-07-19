@@ -134,12 +134,16 @@ class ADReyeVRPawn : public APawn
     float ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax);
     void LogFordData();
 
-
     boost::asio::io_context* io;
     boost::asio::serial_port* serial;
     TArray<int32> OldFordData;
     TArray<int32> CurrentFordData;
     bool bIsFordEstablished = false;
+
+  public:
+    void TerminateFordCockpit(); // This will be called by the EgoVehicle on world reload/destroy.
+
+  private:
 
     ////////////////:LOGI:////////////////
     void InitLogiWheel();

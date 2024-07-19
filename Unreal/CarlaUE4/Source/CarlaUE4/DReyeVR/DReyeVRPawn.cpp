@@ -661,13 +661,53 @@ void ADReyeVRPawn::InitFordCockpit()
     }
     catch (boost::system::system_error& e)
     {
-        UE_LOG(LogTemp, Error, TEXT("Error opening serial port: %s"), *FString(e.what()));
+        UE_LOG(LogTemp, Error, TEXT("Error opening Arduino serial port: %s"), *FString(e.what()));
+        delete serial;
+        serial = nullptr;
+        delete io;
+        io = nullptr;
+    }
+    catch (std::exception& e)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error connecting to Arudino: %s"), *FString(e.what()));
         delete serial;
         serial = nullptr;
         delete io;
         io = nullptr;
     }
 }
+
+void ADReyeVRPawn::TerminateFordCockpit()
+{
+    try
+    {
+        if (serial)
+        {
+            if (serial->is_open())
+            {
+                serial->close();
+            }
+            delete serial;
+            serial = nullptr;
+        }
+        if (io)
+        {
+            delete io;
+            io = nullptr;
+        }
+        bIsFordEstablished = false;
+        UE_LOG(LogTemp, Log, TEXT("Successfully terminated Ford Cockpit connection."));
+    }
+    catch (boost::system::system_error& e)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error closing Arduino serial port: %s"), *FString(e.what()));
+    }
+    catch (std::exception& e)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Error during termination of Ford Cockpit connection: %s"), *FString(e.what()));
+    }
+}
+
 
 void ADReyeVRPawn::TickFordCockpit()
 {

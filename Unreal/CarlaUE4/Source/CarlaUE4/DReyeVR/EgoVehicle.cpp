@@ -245,6 +245,8 @@ void AEgoVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
         GetDataRunnable = nullptr;
     }
 
+    this->Pawn->TerminateFordCockpit();
+
     // https://docs.unrealengine.com/4.27/en-US/API/Runtime/Engine/Engine/EEndPlayReason__Type/
     if (EndPlayReason == EEndPlayReason::Destroyed)
     {
