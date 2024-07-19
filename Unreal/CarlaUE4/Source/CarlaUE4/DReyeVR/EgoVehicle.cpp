@@ -129,6 +129,8 @@ void AEgoVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
         }
     }
 
+    this->Pawn->TerminateFordCockpit();
+
     if (this->Pawn)
     {
         this->Pawn->SetEgoVehicle(nullptr);
