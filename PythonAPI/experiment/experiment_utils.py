@@ -399,7 +399,7 @@ class VehicleBehaviourSuite:
                 VehicleBehaviourSuite.local_vehicle_status = carla_vehicle_status["vehicle_status"]
 
         # Get the ego vehicle as it is required to change the behaviour
-        ego_vehicle = find_ego_vehicle(world, verbose=False)
+        ego_vehicle = find_ego_vehicle(world)
 
         # Now, execute any required behaviour based on the potential updated vehicle status
         if VehicleBehaviourSuite.previous_local_vehicle_status != VehicleBehaviourSuite.local_vehicle_status:
