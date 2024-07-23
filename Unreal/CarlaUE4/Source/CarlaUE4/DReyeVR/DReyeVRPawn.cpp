@@ -485,8 +485,8 @@ void ADReyeVRPawn::ManageFordButtonPresses()
     else
         EgoVehicle->ReleaseReverse();
 
-    bool bTurnSignalR = !static_cast<bool>(CurrentFordData[18]);
-    bool bTurnSignalL = !static_cast<bool>(CurrentFordData[19]);
+    bool bTurnSignalR = !static_cast<bool>(CurrentFordData[19]);
+    bool bTurnSignalL = !static_cast<bool>(CurrentFordData[18]);
 
     if (bTurnSignalR)
         EgoVehicle->PressTurnSignalR();
