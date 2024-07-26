@@ -315,18 +315,13 @@ public:
     float AutopilotStartTimestamp = -1; // Store when the autopilot started
     float ResumedAutopilotStartTimestamp = -1; // Store when the autopilot is resumed
 
-    enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
-    // The following value will determine the NDRT interaction during pre-alert time
-    InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrieved from a config file
-    int32 InterruptionAlertFrequency = 0;
-    bool bIsAlertFreqCounted = false;
+    enum class InterruptionMethod { Immediate, Negotiated, Scheduled}; // Change the behaviour of the NDRT interruption based on the type provided
+    InterruptionMethod CurrInterruptionMethod = InterruptionMethod::Immediate; // Should be dynamically retrieved from a config file
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* SecondaryHUD;
-    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UStaticMeshComponent* DisableHUD;
 
     //Pattern Matching Task
     enum class PMLines{One=1, Two=2, Three=3};
