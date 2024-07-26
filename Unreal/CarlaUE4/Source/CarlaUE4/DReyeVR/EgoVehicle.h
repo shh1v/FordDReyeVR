@@ -308,7 +308,7 @@ public:
 
   private: // Non-Driving-Related Task
 	bool IsSkippingSR = false; // Stores if the current trial is a test trial. True is its a test trial.
-    enum class TaskType {NBackTask, PatternMatchingTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
+    enum class TaskType {NBackTask, PatternMatchingTask, TVShowTask, VisualNBackTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
     float NDRTStartLag = 2.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)

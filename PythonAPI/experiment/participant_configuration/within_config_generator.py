@@ -46,7 +46,7 @@ InterruptionMethod="Immediate"
 """
 
 # Block template
-block_template = """[Block1Trial{trial_num}]
+block_template = """[Block{block_num}Trial{trial_num}]
 SkipSR="False"
 NDRTTaskType="VisualNBackTask"
 TaskSetting="{n_back_level}"
@@ -66,10 +66,11 @@ for i in range(18):
     order_index = i % len(latin_square_order)
     order = latin_square_order[order_index]
 
-    for trial_num, condition_index in enumerate(order, start=1):
+    for block_num, condition_index in enumerate(order, start=1):
         n_back_level, interruption_method = condition_mapping[condition_index]
-        block_entry = block_template.format(trial_num=trial_num, n_back_level=n_back_level, interruption_method=interruption_method)
-        block_entries.append(block_entry)
+        for trial_num in range(1, 3):  # Two trials for each condition
+            block_entry = block_template.format(block_num=block_num, trial_num=trial_num, n_back_level=n_back_level, interruption_method=interruption_method)
+            block_entries.append(block_entry)
     
     blocks = "\n".join(block_entries)
     config_content = template.format(participant_id=participant_id, blocks=blocks)
