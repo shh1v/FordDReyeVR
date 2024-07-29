@@ -25,6 +25,18 @@ void AEgoVehicle::SetupNDRT()
 		// Setting time constraint based as the average of the n-back task time limits
 		SetHUDTimeThreshold(GeneralParams.Get<float>("EyeTracker", "GazeOnHUDTimeConstraint"));
 		break;
+	case TaskType::VisualNBackTask:
+		ConstructNBackElements(); // Just setup the n-back elements
+		AvailableNBackBoards.Append({
+			TEXT("12"), TEXT("13"), TEXT("14"), TEXT("15"), TEXT("16"),
+			TEXT("17"), TEXT("18"), TEXT("19"), TEXT("23"), TEXT("24"),
+			TEXT("25"), TEXT("26"), TEXT("27"), TEXT("28"), TEXT("29"),
+			TEXT("34"), TEXT("35"), TEXT("36"), TEXT("37"), TEXT("38"),
+			TEXT("39"), TEXT("45"), TEXT("46"), TEXT("47"), TEXT("48"),
+			TEXT("49"), TEXT("56"), TEXT("57"), TEXT("58"), TEXT("59"),
+			TEXT("67"), TEXT("68"), TEXT("78"), TEXT("79"), TEXT("89")
+		});
+		break;
 	case TaskType::PatternMatchingTask:
 		ConstructPMElements();
 		// Setting time constraint based as the average of the PM task time limits
@@ -72,6 +84,30 @@ void AEgoVehicle::StartNDRT()
 		// Set the starting time stamp of the n-back task trial now
 		NBackTrialStartTimestamp = FPlatformTime::Seconds();
 		break;
+	case TaskType::VisualNBackTask:
+		// We must set the n-back task title (outside of the constructor call; hence done here)
+		SetNBackTitle(static_cast<int>(CurrentNValue));
+
+		// Add randomly generated elements to NBackPrompts
+		for (int32 i = 0; i < TotalNBackTasks; i++)
+		{
+			// NOTE: A "MATCH" is generated 50% of the times
+			FString PlusLocation;
+			if (FMath::RandBool() && i >= static_cast<int>(CurrentNValue))
+			{
+				PlusLocation = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+			}
+			else
+			{
+				PlusLocation = AvailableNBackBoards[FMath::RandRange(0, AvailableNBackBoards.Num() - 1)];
+			}
+			NBackPrompts.Add(PlusLocation);
+		}
+		// Set the first index letter on the HUD
+		SetBoard(NBackPrompts[0]);
+		// Set the starting time stamp of the n-back task trial now
+		NBackTrialStartTimestamp = FPlatformTime::Seconds();
+		break;
 	case TaskType::PatternMatchingTask:
 		SetPseudoRandomPattern(true, true);
 		SetRandomSequence(true, true);
@@ -107,7 +143,12 @@ void AEgoVehicle::ToggleNDRT(bool active)
 	switch (CurrTaskType)
 	{
 	case TaskType::NBackTask:
-		NBackLetter->SetVisibility(active, false);
+		NBackStimuli->SetVisibility(active, false);
+		NBackControlsInfo->SetVisibility(active, false);
+		NBackTitle->SetVisibility(active, false);
+		break;
+	case TaskType::VisualNBackTask:
+		NBackStimuli->SetVisibility(active, false);
 		NBackControlsInfo->SetVisibility(active, false);
 		NBackTitle->SetVisibility(active, false);
 		break;
@@ -219,10 +260,7 @@ void AEgoVehicle::TerminateNDRT()
 void AEgoVehicle::TickNDRT()
 {
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
-	// to TrialOver when the NDRT task is over.
-
-	// Calling the HUD Gaze timer calculator just to be sure it is called frequently enough
-	GazeOnHUDTime();
+	// to TrialOver when the NDRT task is over
 
 	// Create a lambda function to call the tick method based on the NDRT set from configuration file
 	auto HandleTaskTick = [&]()
@@ -231,6 +269,9 @@ void AEgoVehicle::TickNDRT()
 		{
 		case TaskType::NBackTask:
 			NBackTaskTick();
+			break;
+		case TaskType::VisualNBackTask:
+			VisualNBackTaskTick();
 			break;
 		case TaskType::PatternMatchingTask:
 			PatternMatchTaskTick();
@@ -337,69 +378,13 @@ void AEgoVehicle::TickNDRT()
 		return; // Exit for efficiency
 	}
 
-	// During pre alert, call the HandleTaskTick()
+	// During pre-alert (or pre-TOR) phase, call the HandleTaskTick()
 	HandleTaskTick();
 
-	// During the pre-alert period, allow NDRT engagement, but with potential restriction based
-	// on the interruption paradigm. However, the task (timer) will continue to run
-	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
-	{
-		// Show a pre-alert message suggesting that a take-over request may be issued in the future
-		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
-
-		// Also give a audio notification to make sure they see it
-		if (!bIsPreAlertOn)
-		{
-			PreAlertSound->Play();
-			bIsPreAlertOn = true;
-		}
+	// TODO: Implement specific behaviour for the scheduled TOR
+	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot) {
+		// do something
 	}
-
-	//if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
-	//{
-	//	switch (CurrInterruptionParadigm)
-	//	{
-	//	case InterruptionParadigm::SystemRecommended:
-	//		ToggleAlertOnNDRT(true);
-	//		if (!bIsAlertFreqCounted)
-	//		{
-	//			InterruptionAlertFrequency++;
-	//			bIsAlertFreqCounted = true;
-	//		}
-	//		break;
-
-	//	case InterruptionParadigm::SystemInitiated:
-	//		ToggleAlertOnNDRT(true);
-	//		SetInteractivityOfNDRT(false);
-	//		if (!bIsAlertFreqCounted)
-	//		{
-	//			InterruptionAlertFrequency++;
-	//			bIsAlertFreqCounted = true;
-	//		}
-	//		break;
-	//	default:
-	//		break;
-	//	}
-	//}
-	//else
-	//{
-	//	switch (CurrInterruptionParadigm)
-	//	{
-	//	case InterruptionParadigm::SystemRecommended:
-	//		ToggleAlertOnNDRT(false);
-	//		bIsAlertFreqCounted = false;
-	//		break;
-
-	//	case InterruptionParadigm::SystemInitiated:
-	//		ToggleAlertOnNDRT(false);
-	//		SetInteractivityOfNDRT(true);
-	//		bIsAlertFreqCounted = false;
-	//		break;
-
-	//	default:
-	//		break;
-	//	}
-	//}
 }
 
 void AEgoVehicle::ConstructHUD()
@@ -573,14 +558,14 @@ void AEgoVehicle::ConstructPMElements()
 void AEgoVehicle::ConstructNBackElements()
 {
 	// Creating the letter pane to show letters for the n-back task
-	NBackLetter = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Letter Pane"));
-	NBackLetter->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-	NBackLetter->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	NBackLetter->SetRelativeTransform(VehicleParams.Get<FTransform>("NBack", "LetterLocation"));
+	NBackStimuli = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Letter Pane"));
+	NBackStimuli->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	NBackStimuli->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	NBackStimuli->SetRelativeTransform(VehicleParams.Get<FTransform>("NBack", "LetterLocation"));
 	FString PathToMeshNBackLetter = TEXT("StaticMesh'/Game/NDRT/NBackTask/StaticMeshes/SM_LetterPane.SM_LetterPane'");
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> NBackLetterMeshObj(*PathToMeshNBackLetter);
-	NBackLetter->SetStaticMesh(NBackLetterMeshObj.Object);
-	NBackLetter->SetCastShadow(false);
+	NBackStimuli->SetStaticMesh(NBackLetterMeshObj.Object);
+	NBackStimuli->SetCastShadow(false);
 
 	// Creating a pane to show controls on the logitech steering wheel for the n-back task
 	NBackControlsInfo = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Controls Pane"));
@@ -592,7 +577,7 @@ void AEgoVehicle::ConstructNBackElements()
 	NBackControlsInfo->SetStaticMesh(NBackControlsMeshObj.Object);
 	NBackControlsInfo->SetCastShadow(false);
 
-	// Creating a pane for the title (0-back, 1-back, etc..)
+	// Creating a pane for the title (1-back, 2-back, etc..)
 	NBackTitle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Title Pane"));
 	NBackTitle->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	NBackTitle->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -605,7 +590,7 @@ void AEgoVehicle::ConstructNBackElements()
 	// Setting the appropriate n-back task title
 	SetNBackTitle(static_cast<int>(CurrentNValue));
 
-	// Construct all the sounds for Logitech inputs
+	// Construct all the sounds for wheel inputs
 	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
 		TEXT("SoundWave'/Game/NDRT/NBackTask/Sounds/CorrectNBackSound.CorrectNBackSound'"));
 	NBackCorrectSound = CreateDefaultSubobject<UAudioComponent>(TEXT("CorrectNBackSound"));
@@ -802,15 +787,39 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 
 void AEgoVehicle::SetLetter(const FString &Letter)
 {
-	if (NBackLetter == nullptr)
-		return; // NBackLetter is not initialized yet
+	if (NBackStimuli == nullptr)
+		return; // NBackStimuli is not initialized yet
 
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
 	UMaterial *NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
 
 	if (NewMaterial)
 	{
-		NBackLetter->SetMaterial(0, NewMaterial);
+		NBackStimuli->SetMaterial(0, NewMaterial);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Failed to load material: %s"), *MaterialPath);
+	}
+}
+
+void AEgoVehicle::SetBoard(const FString& Index)
+{
+	if (NBackStimuli == nullptr)
+		return; // NBackStimuli is not initialized yet
+
+	FString MaterialPath;
+	if (Index.Equals("")) {
+		FString MaterialPath = TEXT("Material'/Game/NDRT/NBackTask/Letters/M_NoLetter.M_NoLetter'");
+	}
+	else {
+		FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Boards/M_B%s.M_B%s'"), *Index, *Index);
+	}
+	UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+
+	if (NewMaterial)
+	{
+		NBackStimuli->SetMaterial(0, NewMaterial);
 	}
 	else
 	{
@@ -1012,6 +1021,148 @@ void AEgoVehicle::NBackTaskTick()
 			}
 			// Set the next letter if there are more prompts left
 			SetLetter(NBackPrompts[NBackRecordedResponses.Num()]);
+
+			// Since a new letter is set, update the time stamp
+			NBackTrialStartTimestamp = FPlatformTime::Seconds();
+
+			// Reset the boolean variable for the new trial now
+			IsNBackResponseGiven = false;
+		}
+		else if (NBackResponseBuffer.Num() > 0)
+		{
+			// Clear the response buffer as the input is already registered.
+			NBackResponseBuffer.Empty();
+		}
+	}
+	else
+	{
+		FString LatestResponse;
+		if (NBackResponseBuffer.Num() > 0)
+		{
+			LatestResponse = NBackResponseBuffer[0];
+		}
+		else if (HasTimeExpired)
+		{
+			LatestResponse = "NR"; // No Response
+		}
+		else
+		{
+			return;
+		}
+
+		IsNBackResponseGiven = true;
+
+		// Get the current game index
+		int32 CurrentGameIndex = NBackRecordedResponses.Num();
+
+		// Just a safety check so that the simulator does not crash because of index out of bounds
+		// NOTE: This will only be true when NDRT is terminated, but NBackTaskTick() is still called
+		// due to a small lag in ending the trial
+		if (NBackPrompts.Num() == NBackRecordedResponses.Num())
+		{
+			return;
+		}
+		// Figure out if there is a match or not
+		FString CorrectResponse;
+		if (CurrentGameIndex < static_cast<int>(CurrentNValue))
+		{
+			CorrectResponse = TEXT("MM");
+		}
+		else
+		{
+			if (NBackPrompts[CurrentGameIndex].Equals(NBackPrompts[CurrentGameIndex - static_cast<int>(CurrentNValue)]))
+			{
+				CorrectResponse = TEXT("M");
+			}
+			else
+			{
+				CorrectResponse = TEXT("MM");
+			}
+		}
+
+		// Check if the expected response matches the given response
+		if (CorrectResponse.Equals(LatestResponse))
+		{
+			// Play a "correct answer" sound
+			NBackCorrectSound->Play();
+		}
+		else
+		{
+			// Play an "incorrect answer" sound
+			NBackIncorrectSound->Play();
+		}
+
+		// Now, add the latest response to the array just for record
+		NBackRecordedResponses.Add(LatestResponse);
+
+		// Get the current timestamp and record it
+		FDateTime CurrentTime = FDateTime::Now();
+		FString TimestampWithoutMilliseconds = CurrentTime.ToString(TEXT("%d/%m/%Y %H:%M:%S"));
+		int32 Milliseconds = CurrentTime.GetMillisecond();
+		FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
+		NBackResponseTimestamp.Add(Timestamp);
+
+		// We can now clear the response buffer
+		NBackResponseBuffer.Empty();
+	}
+}
+
+void AEgoVehicle::VisualNBackTaskTick()
+{
+	// Note: This method, we assume that NBackPrompts is already initialized with randomized letters
+	// There are two cases when computation is required.
+	// CASE 1: [Response already registered] Input is given and time has not expired
+	// CASE 2: [Response already registered] Time has expired (go to the next trial)
+	// CASE 3: [Response not registered] Input is given and time has not expired
+	// CASE 4: [Response not registered] Time has expired (go to the next trial)
+	const float TrialTimeLimit = 3.0f; // This is standard for 1-back and the 2-back task
+	const float TrialStimuliLimit = 0.5f; // The stimuli will only be shown for a specific time
+
+	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
+
+	// Hide the stimuli after some time
+	if (FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialStimuliLimit) {
+		SetBoard(TEXT("")); // Set the board to black material
+	}
+
+	if (IsNBackResponseGiven)
+	{
+		if (HasTimeExpired)
+		{
+			// Go to the next trial regardless if whether an input was given or not
+			// Check all the n-back task trials are over. If TOR is not finished, add more tasks.
+			if (NBackPrompts.Num() == NBackRecordedResponses.Num())
+			{
+				if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+				{
+					// We can safely end the trial here
+					TerminateNDRT();
+
+					// Exit to not cause index out of bound error
+					return;
+				}
+				else
+				{
+					// This should ideally never kick in
+					int32 AdditionalTasks = static_cast<int32>((OneBackTimeLimit * 10) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
+					for (int32 i = 0; i < 10; i++)
+					{
+						// NOTE: A "MATCH" is generated 50% of the times
+						FString PlusLocation;
+						if (FMath::RandBool() && i >= static_cast<int>(CurrentNValue))
+						{
+							PlusLocation = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+						}
+						else
+						{
+							PlusLocation = AvailableNBackBoards[FMath::RandRange(0, AvailableNBackBoards.Num() - 1)];
+						}
+						NBackPrompts.Add(PlusLocation);
+					}
+				}
+			}
+			// Set the next letter if there are more prompts left
+			SetBoard(NBackPrompts[NBackRecordedResponses.Num()]);
 
 			// Since a new letter is set, update the time stamp
 			NBackTrialStartTimestamp = FPlatformTime::Seconds();

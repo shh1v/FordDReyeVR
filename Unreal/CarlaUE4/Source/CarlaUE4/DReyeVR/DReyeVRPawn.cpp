@@ -801,6 +801,17 @@ void ADReyeVRPawn::ManageFordButtonPresses()
     else
         EgoVehicle->ReleaseTurnSignalL();
 
+    const bool bDPad_Up = !static_cast<bool>(CurrentFordData[25]);
+    const bool bDPad_Right = !static_cast<bool>(CurrentFordData[23]);
+    const bool bDPad_Down = !static_cast<bool>(CurrentFordData[29]);
+    const bool bDPad_Left = !static_cast<bool>(CurrentFordData[24]);
+
+    // Send the up and down joystick click events for the NDRT task
+    EgoVehicle->RecordPMInputs(bDPad_Up, bDPad_Down);
+    EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
+
+    // Record if the TOR button is pressed
+    //EgoVehicle->CheckTORButtonPress(bABXY_A, bABXY_B, bABXY_X, bABXY_Y);
 }
 
 float ADReyeVRPawn::ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax)

@@ -365,6 +365,7 @@ public:
     enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::One;
     int32 TotalNBackTasks = -1; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
+    TArray<FString> AvailableNBackBoards; // Stores all the board patterns available.
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
     TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
     TArray<FString> NBackResponseTimestamp; // Store the timestamp of when the response was registered by the simulator
@@ -373,7 +374,7 @@ public:
     float NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
     bool IsNBackResponseGiven = false; // Stores whether an input was given for a specific trial
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UStaticMeshComponent* NBackLetter;
+    class UStaticMeshComponent* NBackStimuli;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackControlsInfo;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
@@ -386,10 +387,13 @@ public:
     bool bWasNBBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
     bool bWasNBBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
     void NBackTaskTick(); // Update the n-back task in every tick
+    void VisualNBackTaskTick(); // Update the visual n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
     void SetNBackTitle(int32 NBackValue); // Set the n-back title with the correct n-value.
-    void SetLetter(const FString& letter); // Set a new letter in the n-back task.
+    void SetLetter(const FString& Letter); // Set a new letter in the n-back task.
+    void SetBoard(const FString& Index); // Set a new letter in the n-back task.
+
 
     // TV show task
     UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
@@ -418,7 +422,6 @@ public:
     void SetInteractivityOfNDRT(bool interactivity);    // Completely hide/appear the head-up display (and subsequently pase the NDRT if not done already)
     void TerminateNDRT();   // Destroy the NDRT head-up display, terminate NDRT and save data
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
-    void RecordInput(); // Record the input from the Logitech steering wheel
 
 private:
     UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

@@ -163,22 +163,20 @@ void AEgoVehicle::ReadExperimentVariables()
 
     if (CurrTaskType == TaskType::NBackTask || CurrTaskType == TaskType::VisualNBackTask)
     {
+        TotalNBackTasks = 40;
         if (TaskSetting.Equals(TEXT("One")))
         {
             CurrentNValue = NValue::One;
-            TotalNBackTasks = 40;
             UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: One"), *Now.ToString());
         }
         else if (TaskSetting.Equals(TEXT("Two")))
         {
             CurrentNValue = NValue::Two;
-            TotalNBackTasks = 40;
             UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Two"), *Now.ToString());
         }
         else if (TaskSetting.Equals(TEXT("Three")))
         {
             CurrentNValue = NValue::Three;
-            TotalNBackTasks = 40;
             UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Three"), *Now.ToString());
         }
     }
