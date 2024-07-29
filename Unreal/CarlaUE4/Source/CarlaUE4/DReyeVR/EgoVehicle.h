@@ -322,6 +322,8 @@ public:
     class UStaticMeshComponent* PrimaryHUD;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* SecondaryHUD;
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* DisableHUD;
 
     //Pattern Matching Task
     enum class PMLines{One=1, Two=2, Three=3};
@@ -359,7 +361,7 @@ public:
     bool bWasPMBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
     bool bWasPMBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
 
-    // N-back task
+    // N-back task (and Visual n-back task)
     enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::One;
     int32 TotalNBackTasks = -1; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.

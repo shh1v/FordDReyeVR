@@ -214,29 +214,6 @@ void AEgoVehicle::TerminateNDRT()
 			FFileHelper::SaveStringToFile(RowString + TEXT("\n"), *NBackCSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 		}
 	}
-
-	// Lastly, add non-NDRT specific data.
-	// (1) Adding the number of interruption alerts issued
-
-	// Define the CSV file path
-	const FString InterCSVFilePath = FPaths::ProjectContentDir() / TEXT("SystemData/interruption_freq.csv");
-
-	// Check if the file exists, and if not, create it and write the header
-	if (!FPaths::FileExists(InterCSVFilePath))
-	{
-		FString Header = TEXT("ParticipantID,BlockNumber,TrialNumber,TaskType,TaskSetting,TrafficComplexity,InterruptionFrequency\n");
-		FFileHelper::SaveStringToFile(Header, *InterCSVFilePath);
-	}
-
-	// Combine the common data with the specific data for frequency
-	TArray<FString> InterRowData = CommonRowData;
-	InterRowData.Add(FString::FromInt(InterruptionAlertFrequency));
-
-	// Convert the row data to a single comma-separated string
-	FString InterRowString = FString::Join(InterRowData, TEXT(","));
-
-	// Append this row to the CSV file
-	FFileHelper::SaveStringToFile(InterRowString + TEXT("\n"), *InterCSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 }
 
 void AEgoVehicle::TickNDRT()
@@ -378,51 +355,51 @@ void AEgoVehicle::TickNDRT()
 		}
 	}
 
-	if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
-	{
-		switch (CurrInterruptionParadigm)
-		{
-		case InterruptionParadigm::SystemRecommended:
-			ToggleAlertOnNDRT(true);
-			if (!bIsAlertFreqCounted)
-			{
-				InterruptionAlertFrequency++;
-				bIsAlertFreqCounted = true;
-			}
-			break;
+	//if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
+	//{
+	//	switch (CurrInterruptionParadigm)
+	//	{
+	//	case InterruptionParadigm::SystemRecommended:
+	//		ToggleAlertOnNDRT(true);
+	//		if (!bIsAlertFreqCounted)
+	//		{
+	//			InterruptionAlertFrequency++;
+	//			bIsAlertFreqCounted = true;
+	//		}
+	//		break;
 
-		case InterruptionParadigm::SystemInitiated:
-			ToggleAlertOnNDRT(true);
-			SetInteractivityOfNDRT(false);
-			if (!bIsAlertFreqCounted)
-			{
-				InterruptionAlertFrequency++;
-				bIsAlertFreqCounted = true;
-			}
-			break;
-		default:
-			break;
-		}
-	}
-	else
-	{
-		switch (CurrInterruptionParadigm)
-		{
-		case InterruptionParadigm::SystemRecommended:
-			ToggleAlertOnNDRT(false);
-			bIsAlertFreqCounted = false;
-			break;
+	//	case InterruptionParadigm::SystemInitiated:
+	//		ToggleAlertOnNDRT(true);
+	//		SetInteractivityOfNDRT(false);
+	//		if (!bIsAlertFreqCounted)
+	//		{
+	//			InterruptionAlertFrequency++;
+	//			bIsAlertFreqCounted = true;
+	//		}
+	//		break;
+	//	default:
+	//		break;
+	//	}
+	//}
+	//else
+	//{
+	//	switch (CurrInterruptionParadigm)
+	//	{
+	//	case InterruptionParadigm::SystemRecommended:
+	//		ToggleAlertOnNDRT(false);
+	//		bIsAlertFreqCounted = false;
+	//		break;
 
-		case InterruptionParadigm::SystemInitiated:
-			ToggleAlertOnNDRT(false);
-			SetInteractivityOfNDRT(true);
-			bIsAlertFreqCounted = false;
-			break;
+	//	case InterruptionParadigm::SystemInitiated:
+	//		ToggleAlertOnNDRT(false);
+	//		SetInteractivityOfNDRT(true);
+	//		bIsAlertFreqCounted = false;
+	//		break;
 
-		default:
-			break;
-		}
-	}
+	//	default:
+	//		break;
+	//	}
+	//}
 }
 
 void AEgoVehicle::ConstructHUD()

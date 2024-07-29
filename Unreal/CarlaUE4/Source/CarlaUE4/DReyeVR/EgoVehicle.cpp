@@ -107,25 +107,6 @@ void AEgoVehicle::ReadExperimentVariables()
     // This is done so that the updated file (by python API) is re-read
     ExperimentParams = ConfigFile(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));
 
-    // Retrieve the interruption paradigm that will be used
-    FString InterruptionParadigm;
-    ExperimentParams.Get("General", "InterruptionParadigm", InterruptionParadigm);
-    if (InterruptionParadigm.Equals(TEXT("SelfRegulated")))
-    {
-        CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated;
-        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SelfRegulated"), *Now.ToString());
-    }
-    else if (InterruptionParadigm.Equals(TEXT("SystemRecommended")))
-    {
-        CurrInterruptionParadigm = InterruptionParadigm::SystemRecommended;
-        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SystemRecommended"), *Now.ToString());
-    }
-    else if (InterruptionParadigm.Equals(TEXT("SystemInitiated")))
-    {
-        CurrInterruptionParadigm = InterruptionParadigm::SystemInitiated;
-        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SystemInitiated"), *Now.ToString());
-    }
-
     // Get the current block name so that trial specific variables can be retrieved
     FString CurrentBlock;
     ExperimentParams.Get<FString>("General", "CurrentBlock", CurrentBlock);
@@ -134,6 +115,25 @@ void AEgoVehicle::ReadExperimentVariables()
     // Retrieve if this is a test trial or not
     IsSkippingSR = ExperimentParams.Get<FString>(CurrentBlock, "SkipSR").Equals("True");
 
+    // Retrieve the interruption method for the specific block
+    FString InterruptionMethod;
+    ExperimentParams.Get(CurrentBlock, "InterruptionMethod", InterruptionMethod);
+    if (InterruptionMethod.Equals(TEXT("Immediate")))
+    {
+        CurrInterruptionMethod = InterruptionMethod::Immediate;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Method: Immediate"), *Now.ToString());
+    }
+    else if (InterruptionMethod.Equals(TEXT("Negotiated")))
+    {
+        CurrInterruptionMethod = InterruptionMethod::Negotiated;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Method: Negotiated"), *Now.ToString());
+    }
+    else if (InterruptionMethod.Equals(TEXT("Scheduled")))
+    {
+        CurrInterruptionMethod = InterruptionMethod::Scheduled;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Method: Scheduled"), *Now.ToString());
+    }
+
     // Get the type of NDRT
     FString NDRTTaskType;
     ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType", NDRTTaskType);
@@ -141,6 +141,11 @@ void AEgoVehicle::ReadExperimentVariables()
     {
         CurrTaskType = TaskType::NBackTask;
         UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: NBackTask"), *Now.ToString());
+    }
+    else if (NDRTTaskType.Equals(TEXT("VisualNBackTask")))
+    {
+        CurrTaskType = TaskType::VisualNBackTask;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: VisualNBackTask"), *Now.ToString());
     }
     else if (NDRTTaskType.Equals(TEXT("PatternMatchingTask")))
     {
@@ -152,12 +157,11 @@ void AEgoVehicle::ReadExperimentVariables()
         CurrTaskType = TaskType::TVShowTask;
         UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: TVShowTask"), *Now.ToString());
     }
-
     // Get the specific configuration of the NDRT
     FString TaskSetting;
     ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting", TaskSetting);
 
-    if (CurrTaskType == TaskType::NBackTask)
+    if (CurrTaskType == TaskType::NBackTask || CurrTaskType == TaskType::VisualNBackTask)
     {
         if (TaskSetting.Equals(TEXT("One")))
         {
@@ -168,13 +172,13 @@ void AEgoVehicle::ReadExperimentVariables()
         else if (TaskSetting.Equals(TEXT("Two")))
         {
             CurrentNValue = NValue::Two;
-            TotalNBackTasks = 30;
+            TotalNBackTasks = 40;
             UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Two"), *Now.ToString());
         }
         else if (TaskSetting.Equals(TEXT("Three")))
         {
             CurrentNValue = NValue::Three;
-            TotalNBackTasks = 20;
+            TotalNBackTasks = 40;
             UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Three"), *Now.ToString());
         }
     }
