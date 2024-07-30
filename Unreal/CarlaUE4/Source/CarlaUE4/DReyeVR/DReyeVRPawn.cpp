@@ -801,10 +801,10 @@ void ADReyeVRPawn::ManageFordButtonPresses()
     else
         EgoVehicle->ReleaseTurnSignalL();
 
-    const bool bDPad_Up = !static_cast<bool>(CurrentFordData[25]);
-    const bool bDPad_Right = !static_cast<bool>(CurrentFordData[23]);
-    const bool bDPad_Down = !static_cast<bool>(CurrentFordData[29]);
-    const bool bDPad_Left = !static_cast<bool>(CurrentFordData[24]);
+    const bool bDPad_Up = !static_cast<bool>(CurrentFordData[15]);
+    const bool bDPad_Right = !static_cast<bool>(CurrentFordData[13]);
+    const bool bDPad_Down = !static_cast<bool>(CurrentFordData[17]);
+    const bool bDPad_Left = !static_cast<bool>(CurrentFordData[14]);
 
     // Send the up and down joystick click events for the NDRT task
     EgoVehicle->RecordPMInputs(bDPad_Up, bDPad_Down);

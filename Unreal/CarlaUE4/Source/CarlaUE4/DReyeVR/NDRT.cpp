@@ -810,10 +810,10 @@ void AEgoVehicle::SetBoard(const FString& Index)
 
 	FString MaterialPath;
 	if (Index.Equals("")) {
-		FString MaterialPath = TEXT("Material'/Game/NDRT/NBackTask/Letters/M_NoLetter.M_NoLetter'");
+		MaterialPath = TEXT("Material'/Game/NDRT/NBackTask/Letters/M_NoLetter.M_NoLetter'");
 	}
 	else {
-		FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Boards/M_B%s.M_B%s'"), *Index, *Index);
+		MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Boards/M_B%s.M_B%s'"), *Index, *Index);
 	}
 	UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
 
