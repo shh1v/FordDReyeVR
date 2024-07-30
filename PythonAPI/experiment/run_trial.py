@@ -20,7 +20,7 @@ import time
 # Local imports
 import os
 import carla
-from experiment_utils import ExperimentHelper, VehicleBehaviourSuite, HardwareSuite
+from experiment_utils import ExperimentHelper, VehicleBehaviourSuite
 
 # Other library imports
 import logging
@@ -122,13 +122,9 @@ def run_parallel_modules(host, port, threads, config_file, index):
             # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
             trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, config_file, index)
 
-            # If the trial is over, terminate the process
+            # If the trial is over, terminate method
             if not trial_status:
-                HardwareSuite.terminate_hardware_connection() # Terminate UDP connection
                 break
-
-            # If the trial is still running, send hardware data
-            HardwareSuite.send_hardware_data()
             
     except Exception as e:
         print("Exception occurred in vehicle status check thread:", e)
