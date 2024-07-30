@@ -556,7 +556,7 @@ class CarlaPerformance:
     index = -1
 
     # Header for all the metrics
-    common_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity"]
+    common_header = ["ParticipantID", "InterruptionMethod", "TaskType", "TaskSetting"]
 
     # Store all the timestamps of vehicle status phases
     autopilot_start_timestamp = None
@@ -647,11 +647,8 @@ class CarlaPerformance:
         gen_section = CarlaPerformance.config_file[CarlaPerformance.config_file.sections()[0]]
         curr_section_name = CarlaPerformance.config_file.sections()[CarlaPerformance.index]
         curr_section = CarlaPerformance.config_file[curr_section_name]
-        match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
         common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
-                               gen_section["InterruptionParadigm"].replace("\"", ""),
-                               match.group(1) if match else "UnknownBlock",
-                               match.group(2) if match else "UnknownTrial",
+                               curr_section["InterruptionMethod"].replace("\"", ""),
                                curr_section["NDRTTaskType"].replace("\"", ""),
                                curr_section["TaskSetting"].replace("\"", ""),
                                curr_section["Traffic"].replace("\"", ""),
@@ -692,11 +689,8 @@ class CarlaPerformance:
         gen_section = CarlaPerformance.config_file[CarlaPerformance.config_file.sections()[0]]
         curr_section_name = CarlaPerformance.config_file.sections()[CarlaPerformance.index]
         curr_section = CarlaPerformance.config_file[curr_section_name]
-        match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
         common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
-                               gen_section["InterruptionParadigm"].replace("\"", ""),
-                               match.group(1) if match else "UnknownBlock",
-                               match.group(2) if match else "UnknownTrial",
+                               curr_section["InterruptionMethod"].replace("\"", ""),
                                curr_section["NDRTTaskType"].replace("\"", ""),
                                curr_section["TaskSetting"].replace("\"", ""),
                                curr_section["Traffic"].replace("\"", "")]
