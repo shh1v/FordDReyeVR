@@ -383,7 +383,7 @@ void AEgoVehicle::TickNDRT()
 
 	// TODO: Implement specific behaviour for the scheduled TOR
 	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot) {
-		// do something
+		SetMessagePaneText(TEXT("Pre alert phase"), FColor::Red);
 	}
 }
 

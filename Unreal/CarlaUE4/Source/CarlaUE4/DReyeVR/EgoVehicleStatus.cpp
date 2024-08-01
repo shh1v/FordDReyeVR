@@ -24,8 +24,8 @@ bool AEgoVehicle::EstablishVehicleStatusConnection() {
 		VehicleStatusSubscriber = new zmq::socket_t(*VehicleStatusReceiveContext, ZMQ_SUB);
 		VehicleStatusPublisher = new zmq::socket_t(*VehicleStatusSendContext, ZMQ_PUB);
 
-		// Setting 100 ms recv timeout to have non-blocking behaviour
-		const int timeout = 100;  // 100 ms
+		// Setting 10 ms recv timeout to have non-blocking behaviour
+		const int timeout = 10;  // 10 ms
 		VehicleStatusSubscriber->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 		int conflate = 1;
 		VehicleStatusSubscriber->setsockopt(ZMQ_CONFLATE, &conflate, sizeof(conflate));

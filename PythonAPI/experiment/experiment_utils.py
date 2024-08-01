@@ -269,7 +269,8 @@ class VehicleBehaviourSuite:
         # Receive vehicle status from carla server and scenario runner
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
-
+        print(VehicleBehaviourSuite.local_vehicle_status)
+        
         # Check if there are no vehicle status conflicts. If there is a conflict, determine the correct vehicle status
         # Furthermore, also store the timestamp of when the vehicle status changed (i.e., when the vehicle status is sent by the publisher)
         sent_timestamp = None
@@ -294,6 +295,7 @@ class VehicleBehaviourSuite:
 
         # Now, execute any required behaviour based on the potential updated vehicle status
         if VehicleBehaviourSuite.previous_local_vehicle_status != VehicleBehaviourSuite.local_vehicle_status:
+
             # This means that the vehicle status has changed. Hence, execute the required behaviour
             if VehicleBehaviourSuite.local_vehicle_status == "Autopilot":
                 # Record the timestamp of the autopilot start
@@ -393,6 +395,7 @@ class VehicleBehaviourSuite:
         if VehicleBehaviourSuite.log_eye_data:
             EyeTracking.eye_data_tick()
         
+        print("end of call")
         return True
     
     @staticmethod
@@ -542,7 +545,6 @@ class CarlaPerformance:
                                curr_section["InterruptionMethod"].replace("\"", ""),
                                curr_section["NDRTTaskType"].replace("\"", ""),
                                curr_section["TaskSetting"].replace("\"", ""),
-                               curr_section["Traffic"].replace("\"", ""),
                                timestamp]
 
         # Store all the raw measurements in the dataframes
@@ -583,8 +585,7 @@ class CarlaPerformance:
         common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
                                curr_section["InterruptionMethod"].replace("\"", ""),
                                curr_section["NDRTTaskType"].replace("\"", ""),
-                               curr_section["TaskSetting"].replace("\"", ""),
-                               curr_section["Traffic"].replace("\"", "")]
+                               curr_section["TaskSetting"].replace("\"", "")]
 
         # Store all the the timestamps for this trial in the dataframe
         CarlaPerformance.intervals_df.loc[len(CarlaPerformance.intervals_df)] = common_row_elements + [CarlaPerformance.autopilot_start_timestamp,

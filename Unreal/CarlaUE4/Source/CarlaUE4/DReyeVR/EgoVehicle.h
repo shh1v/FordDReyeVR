@@ -186,7 +186,8 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     void ReleaseTurnSignalR();
     float RightSignalTimeToDie; // how long until the blinkers go out
     bool bCanPressTurnSignalR = true;
-    void CheckTORButtonPress(bool bABXY_A, bool bABXY_B, bool bABXY_X, bool bABXY_Y);
+    void CheckLogiTORButtonPress(bool bABXY_A, bool bABXY_B, bool bABXY_X, bool bABXY_Y); // Manage Logitech TOR button press
+    void CheckFordTORButtonPress(bool Button);  // Manage Ford TOR button press
     bool bTakeOverPress = false;
 
     // Camera control functions (offset by some amount)

@@ -12,16 +12,12 @@ def find_ego_vehicle(world: carla.libcarla.World) -> Optional[carla.libcarla.Veh
     DReyeVR_vehicles: str = "harplab.dreyevr_vehicle.*"
     ego_vehicles_in_world = list(world.get_actors().filter(DReyeVR_vehicles))
     if len(ego_vehicles_in_world) >= 1:
-        print(
-            f"Found a DReyeVR EgoVehicle in the world ({ego_vehicles_in_world[0].id})"
-        )
         return ego_vehicles_in_world[0]
 
     DReyeVR_vehicle: Optional[carla.libcarla.Vehicle] = None
     available_ego_vehicles = world.get_blueprint_library().filter(DReyeVR_vehicles)
     if len(available_ego_vehicles) == 1:
         bp = available_ego_vehicles[0]
-        print(f'Spawning only available EgoVehicle: "{bp.id}"')
     else:
         print(
             f"Found {len(available_ego_vehicles)} available EgoVehicles. Which one to use?"
