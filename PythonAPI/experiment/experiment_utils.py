@@ -398,8 +398,7 @@ class VehicleBehaviourSuite:
         # Log the eye-tracking data
         if VehicleBehaviourSuite.log_eye_data:
             EyeTracking.eye_data_tick()
-        
-        print("end of call")
+
         return True
     
     @staticmethod

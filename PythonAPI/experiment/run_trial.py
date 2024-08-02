@@ -70,7 +70,7 @@ def main(args):
             if config_file[section]["SkipSR"].strip("\"") == "False":
                 command = [
                     'python', 'scenario_runner.py',
-                    '--route', 'srunner/data/take_over_routes.xml', 'srunner/data/traffic_complexity_3RV.json', '0',
+                    '--route', 'srunner/data/take_over_routes_debug.xml', 'srunner/data/lane_change_tor.json', '0',
                     '--agent', 'srunner/autoagents/npc_agent.py',
                     '--timeout', '20',
                     '--sync', '--output'
@@ -118,7 +118,6 @@ def run_parallel_modules(host, port, threads, config_file, index):
 
         # Start checking vehicle status/behaviour and sending hardware data
         while True:
-            print("start of call")
             # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
             trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, config_file, index)
 

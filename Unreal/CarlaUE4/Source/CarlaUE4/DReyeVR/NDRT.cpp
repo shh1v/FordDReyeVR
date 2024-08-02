@@ -1304,16 +1304,18 @@ void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor)
 void AEgoVehicle::SetTimerPaneTime(FString Time, FColor TextColor)
 {
 	TimerPane->SetTextRenderColor(TextColor);
+
 	if (Time.Len() == 2) {
-		TimerPane->SetText(FString::Printf(TEXT("Take-Over In: %s", Time)));
+		TimerPane->SetText(FText::FromString(FString::Printf(TEXT("Take-Over In: %s"), *Time)));
 	}
 	else if (Time.Len() == 1) {
-		TimerPane->SetText(FString::Printf(TEXT("Take-Over In: 0%s", Time)));
+		TimerPane->SetText(FText::FromString(FString::Printf(TEXT("Take-Over In: 0%s"), *Time)));
 	}
 	else {
-		TimerPane->SetText(TEXT("0"));
+		TimerPane->SetText(FText::FromString(TEXT("0")));
 	}
 }
+
 
 void AEgoVehicle::SetHUDTimeThreshold(float Threshold)
 {
