@@ -381,9 +381,9 @@ void AEgoVehicle::TickNDRT()
 	// During pre-alert (or pre-TOR) phase, call the HandleTaskTick()
 	HandleTaskTick();
 
-	// TODO: Implement specific behaviour for the scheduled TOR
-	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot) {
-		SetMessagePaneText(TEXT("Pre alert phase"), FColor::Red);
+	// Execute specific behaviour for the scheduled TOR
+	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot && CurrInterruptionMethod == InterruptionMethod::Scheduled) {
+		// Start the timer for scheduled take-over
 	}
 }
 

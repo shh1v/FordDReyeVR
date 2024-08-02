@@ -295,6 +295,7 @@ public: // Game signaling
 private: // Game signaling
     VehicleStatus CurrVehicleStatus = VehicleStatus::Unknown; // This stores the current tick's vehicle status
     VehicleStatus OldVehicleStatus = VehicleStatus::Unknown; // This stores the previous tick's vehicle status
+    FString ScheduleTimer = TEXT("0"); // This variable is specifically for setting timer for scheduled take-over requests
     bool bZMQVehicleStatusConnection = false; // Stores if connection is established
     bool bZMQVehicleStatusDataRetrieve = false; // Stores if connection is established
     zmq::context_t* VehicleStatusReceiveContext;    // Stores the receive context of the zmq process

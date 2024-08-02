@@ -39,6 +39,8 @@ struct FVehicleStatusData
 	UPROPERTY() FString timestamp;
 
 	UPROPERTY() FString vehicle_status;
+
+	UPROPERTY() FString time_data;
 };
 
 USTRUCT()

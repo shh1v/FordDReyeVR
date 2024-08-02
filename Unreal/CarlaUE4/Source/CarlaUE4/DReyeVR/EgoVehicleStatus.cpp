@@ -166,6 +166,9 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 		CurrVehicleStatus = VehicleStatus::Unknown;
 	}
 
+	// Retrieve the schedule timer value
+	ScheduleTimer = VehicleStatusData.time_data;
+
 	return DcOk();
 }
 
@@ -213,7 +216,7 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 	FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
 
 	// Construct the "dictionary" as an FString.
-	FString DictFString = FString::Printf(TEXT("{ \"from\": \"%s\", \"timestamp\": \"%s\", \"vehicle_status\": \"%s\" }"), *From, *Timestamp, *VehicleStatusString);
+	FString DictFString = FString::Printf(TEXT("{ \"from\": \"%s\", \"timestamp\": \"%s\", \"vehicle_status\": \"%s\", \"time_data\": \"0\" }"), *From, *Timestamp, *VehicleStatusString);
 
 	// Convert the FString to a std::string to be used with ZeroMQ.
 	std::string DictStdString(TCHAR_TO_UTF8(*DictFString));
@@ -282,7 +285,7 @@ void AEgoVehicle::SendCurrVehicleStatus()
 	FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
 
 	// Construct the "dictionary" as an FString.
-	FString DictFString = FString::Printf(TEXT("{ \"from\": \"%s\", \"timestamp\": \"%s\", \"vehicle_status\": \"%s\" }"), *From, *Timestamp, *VehicleStatusString);
+	FString DictFString = FString::Printf(TEXT("{ \"from\": \"%s\", \"timestamp\": \"%s\", \"vehicle_status\": \"%s\", \"time_data\": \"0\" }"), *From, *Timestamp, *VehicleStatusString);
 
 	// Convert the FString to a std::string to be used with ZeroMQ.
 	std::string DictStdString(TCHAR_TO_UTF8(*DictFString));

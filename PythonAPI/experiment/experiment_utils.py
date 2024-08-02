@@ -180,7 +180,7 @@ class VehicleBehaviourSuite:
 
 
     @staticmethod
-    def send_vehicle_status(vehicle_status):
+    def send_vehicle_status(vehicle_status, time_data):
         """
         Send vehicle status to the carla
         """
@@ -196,7 +196,8 @@ class VehicleBehaviourSuite:
         message = {
             "from": "client",
             "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-            "vehicle_status": vehicle_status
+            "vehicle_status": vehicle_status,
+            "time_data": time_data
         }
         serialized_message = serializer.packb(message, use_bin_type=True) # Note: The message is serialized because carla by default deserialize the message
         
@@ -216,13 +217,15 @@ class VehicleBehaviourSuite:
             # print(f"Didn't receive any message from carla server at {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]}")
             return {"from": "carla",
                     "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-                    "vehicle_status": "Unknown"}
+                    "vehicle_status": "Unknown",
+                    "time_data": "0"}
         except Exception as e:
             # print("Unexpected error:")
             print(traceback.format_exc())
             return {"from": "carla",
                     "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-                    "vehicle_status": "Unknown"}
+                    "vehicle_status": "Unknown",
+                    "time_data": "0"}
         
         # message_dict will have sender name, timestamp, and vehicle status
         return message_dict
@@ -240,13 +243,15 @@ class VehicleBehaviourSuite:
             # print(f"Didn't receive any message from scenario runner at {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]}")
             return {"from": "scenario_runner",
                     "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-                    "vehicle_status": "Unknown"}
+                    "vehicle_status": "Unknown",
+                    "time_data": "0"}
         except Exception as e:
             # print("Unexpected error:")
             print(traceback.format_exc())
             return {"from": "scenario_runner",
                     "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-                    "vehicle_status": "Unknown"}
+                    "vehicle_status": "Unknown",
+                    "time_data": "0"}
         
         # message_dict will have sender name, timestamp, and vehicle status
         return message_dict
@@ -269,7 +274,6 @@ class VehicleBehaviourSuite:
         # Receive vehicle status from carla server and scenario runner
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
-        print(VehicleBehaviourSuite.local_vehicle_status)
         
         # Check if there are no vehicle status conflicts. If there is a conflict, determine the correct vehicle status
         # Furthermore, also store the timestamp of when the vehicle status changed (i.e., when the vehicle status is sent by the publisher)
@@ -282,7 +286,7 @@ class VehicleBehaviourSuite:
                 VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
                 sent_timestamp = scenario_runner_vehicle_status["timestamp"] # Store the timestamp of when the vehicle status changed
                 # If scenario runner has sent an updated vehicle status, let carla server know about it
-                VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
+                VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"], scenario_runner_vehicle_status["time_data"])
         else:
             # This means that carla server is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
             # NOTE: There may be a chance that scenario runner is sending unknown, and carla is sending an old address. So, check for that
