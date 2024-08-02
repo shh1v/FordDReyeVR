@@ -462,6 +462,9 @@ private:
     UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UTextRenderComponent* MessagePane;
     void SetMessagePaneText(FString DisplayText, FColor TextColor);
+    UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UTextRenderComponent* TimerPane;
+    void SetTimerPaneTime(FString Time, FColor TextColor);
     void DebugLines() const;
     bool bDrawDebugEditor = false;
 

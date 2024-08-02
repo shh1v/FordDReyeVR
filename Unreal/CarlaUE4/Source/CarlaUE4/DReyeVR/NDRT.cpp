@@ -301,7 +301,22 @@ void AEgoVehicle::TickNDRT()
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
 	{
 		// Disable the NDRT interface by toggling it
-		ToggleNDRT(false);
+		if (CurrInterruptionMethod == InterruptionMethod::Negotiated) {
+			if (CurrVehicleStatus == VehicleStatus::TakeOver) {
+				ToggleAlertOnNDRT(true);
+			}
+			else {
+				ToggleAlertOnNDRT(false);
+				ToggleNDRT(false);
+			}
+		}
+		else {
+			// Disable NDRT for immediate and scheduled conditions
+			ToggleNDRT(false);
+
+			// Scheduled timer should always disappear at this point
+			SetTimerPaneTime(TEXT(""), FColor::Black);
+		}
 
 		// Show a message asking the driver to take control of the vehicle
 		SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
@@ -384,6 +399,7 @@ void AEgoVehicle::TickNDRT()
 	// Execute specific behaviour for the scheduled TOR
 	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot && CurrInterruptionMethod == InterruptionMethod::Scheduled) {
 		// Start the timer for scheduled take-over
+		SetTimerPaneTime(ScheduleTimer, FColor::Red);
 	}
 }
 
@@ -432,6 +448,18 @@ void AEgoVehicle::ConstructHUD()
 	MessagePane->SetWorldSize(7); // scale the font with this
 	MessagePane->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
 	MessagePane->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+
+	// Construct the pane here
+	TimerPane = CreateEgoObject<UTextRenderComponent>("TimerPane");
+	TimerPane->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	TimerPane->SetRelativeTransform(VehicleParams.Get<FTransform>("HUD", "ScheduleTimerLocation"));
+	TimerPane->SetTextRenderColor(FColor::Red);
+	TimerPane->SetText(FText::FromString(""));
+	TimerPane->SetXScale(1.f);
+	TimerPane->SetYScale(1.f);
+	TimerPane->SetWorldSize(7); // scale the font with this
+	TimerPane->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
+	TimerPane->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
 
 	// Also construct all the sounds here
 	static ConstructorHelpers::FObjectFinder<USoundWave> HUDAlertSoundWave(
@@ -1271,6 +1299,20 @@ void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor)
 {
 	MessagePane->SetTextRenderColor(TextColor);
 	MessagePane->SetText(DisplayText);
+}
+
+void AEgoVehicle::SetTimerPaneTime(FString Time, FColor TextColor)
+{
+	TimerPane->SetTextRenderColor(TextColor);
+	if (Time.Len() == 2) {
+		TimerPane->SetText(FString::Printf(TEXT("Take-Over In: %s", Time)));
+	}
+	else if (Time.Len() == 1) {
+		TimerPane->SetText(FString::Printf(TEXT("Take-Over In: 0%s", Time)));
+	}
+	else {
+		TimerPane->SetText(TEXT("0"));
+	}
 }
 
 void AEgoVehicle::SetHUDTimeThreshold(float Threshold)
