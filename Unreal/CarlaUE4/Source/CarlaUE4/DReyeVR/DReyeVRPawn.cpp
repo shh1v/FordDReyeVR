@@ -529,17 +529,14 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     }
     else
     {
-        AEgoVehicle::VehicleStatus currStatus = EgoVehicle->GetCurrVehicleStatus();
-
         // Check and update the vehicle status when necessary
-        if (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress) {
+        if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress) {
             EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
         }
 
         // The control modifications are performed in several conditions so we group them together
-        if (currStatus == AEgoVehicle::VehicleStatus::ManualDrive ||
-            currStatus == AEgoVehicle::VehicleStatus::TakeOverManual ||
-            (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress)) {
+        if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::ManualDrive ||
+            EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOverManual) {
             EgoVehicle->AddSteering(WheelRotation);
             EgoVehicle->AddThrottle(AccelerationPedal);
             EgoVehicle->AddBrake(BrakePedal);
@@ -762,13 +759,18 @@ void ADReyeVRPawn::FordWheelUpdate() {
      GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Acceleration Pedal: %.2f"), AccelerationPedal), true, FVector2D(3.0f, 3.0f));
      GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::White, FString::Printf(TEXT("Brake Pedal: %.2f"), BrakePedal), true, FVector2D(3.0f, 3.0f));
 
-    /// NOTE: directly calling the EgoVehicle functions
-    if (!EgoVehicle->GetAutopilotStatus())
-    {
-        EgoVehicle->AddSteering(WheelRotation);
-        EgoVehicle->AddThrottle(AccelerationPedal);
-        EgoVehicle->AddBrake(BrakePedal);
-    }
+     // Check and update the vehicle status when necessary
+     if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress) {
+         EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
+     }
+
+     // The control modifications are performed in several conditions so we group them together
+     if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::ManualDrive ||
+         EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOverManual) {
+         EgoVehicle->AddSteering(WheelRotation);
+         EgoVehicle->AddThrottle(AccelerationPedal);
+         EgoVehicle->AddBrake(BrakePedal);
+     }
     
     // save the last values for the wheel & pedals
     WheelRotationLast = WheelRotation;
@@ -805,7 +807,7 @@ void ADReyeVRPawn::ManageFordButtonPresses()
     const bool bDPad_Right = !static_cast<bool>(CurrentFordData[13]);
     const bool bDPad_Down = !static_cast<bool>(CurrentFordData[17]);
     const bool bDPad_Left = !static_cast<bool>(CurrentFordData[14]);
-    const bool bTakeManualControl = !static_cast<bool>(CurrentFordData[10]);
+    const bool bTakeManualControl = !static_cast<bool>(CurrentFordData[12]);
 
 
     // Send the up and down joystick click events for the NDRT task

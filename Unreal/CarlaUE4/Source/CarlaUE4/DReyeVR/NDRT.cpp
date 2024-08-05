@@ -319,7 +319,12 @@ void AEgoVehicle::TickNDRT()
 		}
 
 		// Show a message asking the driver to take control of the vehicle
-		SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
+		if (CurrVehicleStatus == VehicleStatus::TakeOver) {
+			SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
+		}
+		else {
+			SetMessagePaneText(TEXT("Automation Disengaged"), FColor::Orange);
+		}
 
 		// Play the TOR alert sound if not already
 		if (CurrVehicleStatus == VehicleStatus::TakeOver && !bIsTORAlertPlaying)
