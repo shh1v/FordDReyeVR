@@ -34,8 +34,6 @@ struct FVehicleStatusData
 {
 	GENERATED_BODY()
 
-	UPROPERTY() FString from;
-
 	UPROPERTY() FString timestamp;
 
 	UPROPERTY() FString vehicle_status;

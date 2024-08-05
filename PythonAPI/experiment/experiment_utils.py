@@ -194,7 +194,6 @@ class VehicleBehaviourSuite:
         VehicleBehaviourSuite.local_vehicle_status = vehicle_status
         # Send vehicle status
         message = {
-            "from": "client",
             "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
             "vehicle_status": vehicle_status,
             "time_data": time_data
@@ -215,15 +214,13 @@ class VehicleBehaviourSuite:
             # print("Received message:", message_dict)
         except zmq.Again:  # This exception is raised on timeout
             # print(f"Didn't receive any message from carla server at {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]}")
-            return {"from": "carla",
-                    "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
+            return {"timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
                     "vehicle_status": "Unknown",
                     "time_data": "0"}
         except Exception as e:
             # print("Unexpected error:")
             print(traceback.format_exc())
-            return {"from": "carla",
-                    "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
+            return {"timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
                     "vehicle_status": "Unknown",
                     "time_data": "0"}
         
@@ -241,15 +238,13 @@ class VehicleBehaviourSuite:
             # print("Received message:", message_dict)
         except zmq.Again:  # This exception is raised on timeout
             # print(f"Didn't receive any message from scenario runner at {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]}")
-            return {"from": "scenario_runner",
-                    "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
+            return {"timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
                     "vehicle_status": "Unknown",
                     "time_data": "0"}
         except Exception as e:
             # print("Unexpected error:")
             print(traceback.format_exc())
-            return {"from": "scenario_runner",
-                    "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
+            return {"timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
                     "vehicle_status": "Unknown",
                     "time_data": "0"}
         
