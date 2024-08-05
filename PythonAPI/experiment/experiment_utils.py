@@ -128,6 +128,9 @@ class VehicleBehaviourSuite:
     WARNING: This class will assume that scenario runner will send all the vehicle status to python client except
     for the "ManualMode" status, which will be send by the carla server.
     """
+    # Store the vehicle status as a variable so that multithreading can be used
+    carla_vehicle_status = None
+    scenario_runner_vehicle_status = None
 
     # ZMQ communication subsriber variables for receiving vehicle status from carla server
     carla_subscriber_context = None
@@ -269,7 +272,7 @@ class VehicleBehaviourSuite:
         # Receive vehicle status from carla server and scenario runner
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
-        
+
         # Check if there are no vehicle status conflicts. If there is a conflict, determine the correct vehicle status
         # Furthermore, also store the timestamp of when the vehicle status changed (i.e., when the vehicle status is sent by the publisher)
         sent_timestamp = None
@@ -294,6 +297,7 @@ class VehicleBehaviourSuite:
 
         # Now, execute any required behaviour based on the potential updated vehicle status
         if VehicleBehaviourSuite.previous_local_vehicle_status != VehicleBehaviourSuite.local_vehicle_status:
+            print("Vehicle status changed from {} to {}".format(VehicleBehaviourSuite.previous_local_vehicle_status, VehicleBehaviourSuite.local_vehicle_status))
 
             # This means that the vehicle status has changed. Hence, execute the required behaviour
             if VehicleBehaviourSuite.local_vehicle_status == "Autopilot":
@@ -385,11 +389,10 @@ class VehicleBehaviourSuite:
                 print("Trial is successfully completed! Terminating the parallel process...")
                 return False
 
-
         # Log the driving performance data
         if VehicleBehaviourSuite.log_driving_performance_data:
             CarlaPerformance.performance_tick(world, ego_vehicle)
-        
+            
         # Log the eye-tracking data
         if VehicleBehaviourSuite.log_eye_data:
             EyeTracking.eye_data_tick()
@@ -708,7 +711,8 @@ class EyeTracking:
                 EyeTracking.establish_eye_tracking_connection()
 
             # Loop until all the required data is received
-            data_retrival_index = -1
+            pupil_0_recieved = False
+            pupil_1_recieved = False
 
             while True:
                 try:
@@ -717,20 +721,18 @@ class EyeTracking:
                     byte_message = EyeTracking.pupil_socket.recv(flags=zmq.NOBLOCK)
                     message_dict = loads(byte_message, raw=False)
 
-                    # Check where does the data stand in the ordered flow of data
                     # NOTE: pupil_0 and pupil_1 data is sent in randomized order
-                    if data_retrival_index <= 1 or data_retrival_index < EyeTracking.ordered_sub_topics.index(topic):
+                    # Store the data if it is a blink data (index 2) or when two diameter data (for the two eyes) is not received
+                    if EyeTracking.ordered_sub_topics.index(topic) == 2 or not (pupil_0_recieved and pupil_1_recieved):
                         # This means new data has been received that has not been received before
                         setattr(eye_tracker_data, topic.replace(".", "_") + "_data", message_dict)
-                        data_retrival_index = EyeTracking.ordered_sub_topics.index(topic)
+
+                        if "pupil.0" in topic:
+                            pupil_0_recieved = True
+                        if "pupil.1" in topic:
+                            pupil_1_recieved = True
                     else:
-                        # Data of topic has been received before. Either this can be repeated data or data from the next cycle
-                        if data_retrival_index >= 1:
-                            # This means that all the data has been received (at least of pupils). and we have reached next cycle
-                            break
-                        else:
-                            # This means that the data of lower index is received while we moved ahead
-                            raise Exception(f"Data of lower index {data_retrival_index} is received while we moved ahead to {EyeTracking.ordered_sub_topics.index(topic)}")
+                        break
                 except zmq.error.Again:
                     # This exception is raised on timeout
                     pass
@@ -744,7 +746,7 @@ class EyeTracking:
                                 curr_section["NDRTTaskType"].replace("\"", ""),
                                 curr_section["TaskSetting"].replace("\"", "")]
 
-        # Mandatorily, log the pupil diameter data and blink data
+        # Mandatorily, log the pupil diameter data, and blink data if recieved
         right_eye_data = getattr(eye_tracker_data, "pupil_0_3d_data")
         left_eye_data = getattr(eye_tracker_data, "pupil_1_3d_data")
         if right_eye_data is not None and left_eye_data is not None:
@@ -758,6 +760,7 @@ class EyeTracking:
         else:
             # print("WARNING: Right or left pupil data is unavailable!")
             pass
+
         blink_data = getattr(eye_tracker_data, "blinks_data")
         if blink_data is not None:
             sys_time = EyeTracking.convert_to_sys_time(blink_data["timestamp"]) # Calculate current time stamp
