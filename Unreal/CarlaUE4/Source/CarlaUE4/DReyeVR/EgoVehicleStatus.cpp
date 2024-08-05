@@ -276,8 +276,6 @@ void AEgoVehicle::SendCurrVehicleStatus()
 		return;
 	}
 
-	FString From = TEXT("carla");
-
 	// Get the current timestamp.
 	FDateTime CurrentTime = FDateTime::Now();
 	FString TimestampWithoutMilliseconds = CurrentTime.ToString(TEXT("%d/%m/%Y %H:%M:%S"));
@@ -285,7 +283,7 @@ void AEgoVehicle::SendCurrVehicleStatus()
 	FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
 
 	// Construct the "dictionary" as an FString.
-	FString DictFString = FString::Printf(TEXT("{ \"timestamp\": \"%s\", \"vehicle_status\": \"%s\", \"time_data\": \"0\" }"), *From, *Timestamp, *VehicleStatusString);
+	FString DictFString = FString::Printf(TEXT("{ \"timestamp\": \"%s\", \"vehicle_status\": \"%s\", \"time_data\": \"0\" }"), *Timestamp, *VehicleStatusString);
 
 	// Convert the FString to a std::string to be used with ZeroMQ.
 	std::string DictStdString(TCHAR_TO_UTF8(*DictFString));
