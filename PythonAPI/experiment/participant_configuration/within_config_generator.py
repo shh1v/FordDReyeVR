@@ -42,6 +42,24 @@ NDRTTaskType="VisualNBackTask"
 TaskSetting="Two"
 InterruptionMethod="Immediate"
 
+[Block0Trial1]
+SkipSR="False"
+NDRTTaskType="VisualNBackTask"
+TaskSetting="One"
+InterruptionMethod="Immediate"
+
+[Block0Trial2]
+SkipSR="False"
+NDRTTaskType="VisualNBackTask"
+TaskSetting="One"
+InterruptionMethod="Negotiated"
+
+[Block0Trial3]
+SkipSR="False"
+NDRTTaskType="VisualNBackTask"
+TaskSetting="One"
+InterruptionMethod="Scheduled"
+
 {blocks}
 """
 
