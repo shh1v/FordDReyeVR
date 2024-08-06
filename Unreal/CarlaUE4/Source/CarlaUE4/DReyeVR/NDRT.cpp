@@ -183,8 +183,7 @@ void AEgoVehicle::ToggleAlertOnNDRT(bool active)
 		// Play a subtle alert sound if not already played
 		if (!bIsAlertOnNDRTOn)
 		{
-			// Play an alert sound once (looping is disabled)
-			HUDAlertSound->Play();
+			// HUDAlertSound->Play();
 			bIsAlertOnNDRTOn = true;
 		}
 	}
@@ -462,7 +461,7 @@ void AEgoVehicle::ConstructHUD()
 	TimerPane->SetText(FText::FromString(""));
 	TimerPane->SetXScale(1.f);
 	TimerPane->SetYScale(1.f);
-	TimerPane->SetWorldSize(7); // scale the font with this
+	TimerPane->SetWorldSize(16); // scale the font with this
 	TimerPane->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
 	TimerPane->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
 
@@ -1317,7 +1316,7 @@ void AEgoVehicle::SetTimerPaneTime(FString Time, FColor TextColor)
 		TimerPane->SetText(FText::FromString(FString::Printf(TEXT("Take-Over In: 0%s"), *Time)));
 	}
 	else {
-		TimerPane->SetText(FText::FromString(TEXT("0")));
+		TimerPane->SetText(FText::FromString(TEXT("")));
 	}
 }
 
