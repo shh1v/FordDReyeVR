@@ -313,7 +313,7 @@ public:
     enum class TaskType {NBackTask, PatternMatchingTask, TVShowTask, VisualNBackTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
-    float NDRTStartLag = 2.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
+    float NDRTStartLag = 5.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
     float AutopilotStartTimestamp = -1; // Store when the autopilot started
     float ResumedAutopilotStartTimestamp = -1; // Store when the autopilot is resumed
 
@@ -374,6 +374,7 @@ public:
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
     float NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
+    bool isFirstNBackTrial = true;
     bool IsNBackResponseGiven = false; // Stores whether an input was given for a specific trial
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackStimuli;

@@ -81,8 +81,6 @@ void AEgoVehicle::StartNDRT()
 		}
 		// Set the first index letter on the HUD
 		SetLetter(NBackPrompts[0]);
-		// Set the starting time stamp of the n-back task trial now
-		NBackTrialStartTimestamp = FPlatformTime::Seconds();
 		break;
 	case TaskType::VisualNBackTask:
 		// We must set the n-back task title (outside of the constructor call; hence done here)
@@ -106,7 +104,6 @@ void AEgoVehicle::StartNDRT()
 		// Set the first index letter on the HUD
 		SetBoard(NBackPrompts[0]);
 		// Set the starting time stamp of the n-back task trial now
-		NBackTrialStartTimestamp = FPlatformTime::Seconds();
 		break;
 	case TaskType::PatternMatchingTask:
 		SetPseudoRandomPattern(true, true);
@@ -1012,6 +1009,13 @@ void AEgoVehicle::NBackTaskTick()
 	// CASE 3: [Response not registered] Input is given and time has not expired
 	// CASE 4: [Response not registered] Time has expired (go to the next trial)
 	const float TrialTimeLimit = OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1);
+
+	// Check if this is the first method call of the first trial. If yes, then set timestamp
+	if (isFirstNBackTrial) {
+		NBackTrialStartTimestamp = FPlatformTime::Seconds();
+		isFirstNBackTrial = false;
+	}
+
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
 
 	if (IsNBackResponseGiven)
@@ -1149,6 +1153,12 @@ void AEgoVehicle::VisualNBackTaskTick()
 	// CASE 4: [Response not registered] Time has expired (go to the next trial)
 	const float TrialTimeLimit = 3.0f; // This is standard for 1-back and the 2-back task
 	const float TrialStimuliLimit = 0.5f; // The stimuli will only be shown for a specific time
+
+	// Check if this is the first method call of the first trial. If yes, then set timestamp
+	if (isFirstNBackTrial) {
+		NBackTrialStartTimestamp = FPlatformTime::Seconds();
+		isFirstNBackTrial = false;
+	}
 
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
 

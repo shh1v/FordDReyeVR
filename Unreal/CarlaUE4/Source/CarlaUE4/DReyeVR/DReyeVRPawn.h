@@ -130,6 +130,7 @@ class ADReyeVRPawn : public APawn
     void TickFordCockpit();
     void FordWheelUpdate();
     void ManageFordButtonPresses();
+    bool isFirstButtonPress = true;
     FString FordArduinoReadLine();
     float ScaleValue(float InputValue, float InputMin, float InputMax, float OutputMin, float OutputMax);
     void LogFordData();

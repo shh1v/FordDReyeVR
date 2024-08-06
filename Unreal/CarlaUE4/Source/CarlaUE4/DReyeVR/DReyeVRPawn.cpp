@@ -782,6 +782,11 @@ void ADReyeVRPawn::FordWheelUpdate() {
 
 void ADReyeVRPawn::ManageFordButtonPresses()
 {
+    if (isFirstButtonPress) {
+        isFirstButtonPress = false;
+        return;
+    }
+
     const bool bA = !static_cast<bool>(CurrentFordData[11]); // For some reason button press is 0, thus inverse is needed
     const bool bB = !static_cast<bool>(CurrentFordData[10]); // For some reason button press is 0, thus inverse is needed
 
@@ -802,6 +807,8 @@ void ADReyeVRPawn::ManageFordButtonPresses()
         EgoVehicle->PressTurnSignalL();
     else
         EgoVehicle->ReleaseTurnSignalL();
+
+    // Non-driving tasks buttons
 
     const bool bDPad_Up = !static_cast<bool>(CurrentFordData[15]);
     const bool bDPad_Right = !static_cast<bool>(CurrentFordData[13]);
