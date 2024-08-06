@@ -742,9 +742,9 @@ void ADReyeVRPawn::FordWheelUpdate() {
 
     /// NOTE: obtained these manually by running tests: https://github.com/mimuc/FordDrivingSimulator/tree/main/Arduino/DrivingSim/Tests
     // 180 to 820. 180 = all the way to the left. 820 = all the way to the right.
-    float WheelRotation = ScaleValue(CurrentFordData[5], 180, 820, -1, 1);
+    float WheelRotation = ScaleValue(CurrentFordData[5], 175, 815, -1, 1);
     // 705 to 1025. 705 = pedal not pressed. 1025 = pedal fully pressed.
-    const float AccelerationPedal = ScaleValue(CurrentFordData[0], 705, 1025, 0, 1);
+    const float AccelerationPedal = ScaleValue(CurrentFordData[0], 710, 1025, 0, 1);
     // 725 to 1010. Higher value = more pressure on brake pedal
     const float BrakePedal = ScaleValue(CurrentFordData[1], 725, 1010, 0, 1);
     
