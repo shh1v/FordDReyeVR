@@ -313,7 +313,7 @@ public:
     enum class TaskType {NBackTask, PatternMatchingTask, TVShowTask, VisualNBackTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
-    float NDRTStartLag = 5.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
+    float NDRTStartLag = 3.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
     float AutopilotStartTimestamp = -1; // Store when the autopilot started
     float ResumedAutopilotStartTimestamp = -1; // Store when the autopilot is resumed
     bool isFirstNDRTTrial = true;

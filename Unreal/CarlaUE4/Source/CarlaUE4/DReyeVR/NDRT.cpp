@@ -338,6 +338,7 @@ void AEgoVehicle::TickNDRT()
 		if (CurrInterruptionMethod == InterruptionMethod::Negotiated) {
 			if (CurrVehicleStatus == VehicleStatus::TakeOver) {
 				ToggleAlertOnNDRT(true);
+				HandleTaskTick();
 			}
 			else {
 				ToggleAlertOnNDRT(false);
@@ -429,7 +430,7 @@ void AEgoVehicle::TickNDRT()
 		{
 			ResumedAutopilotStartTimestamp = UGameplayStatics::GetRealTimeSeconds(GetWorld());
 
-			// Also take this opportunity to rest the first NDRT boolean
+			// Also take this opportunity to reset the first NDRT boolean
 			isFirstNDRTTrial = true;
 		}
 
@@ -437,7 +438,9 @@ void AEgoVehicle::TickNDRT()
 	}
 
 	// During pre-alert (or pre-TOR) phase, call the HandleTaskTick()
-	HandleTaskTick();
+	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot) {
+		HandleTaskTick();
+	}
 
 	// Execute specific behaviour for the scheduled TOR
 	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot && CurrInterruptionMethod == InterruptionMethod::Scheduled) {
@@ -1194,9 +1197,9 @@ void AEgoVehicle::VisualNBackTaskTick()
 	// CASE 3: [Response not registered] Input is given and time has not expired
 	// CASE 4: [Response not registered] Time has expired (go to the next trial)
 	const float TrialTimeLimit = 3.0f; // This is standard for 1-back and the 2-back task
-	const float TrialStimuliLimit = 0.5f; // The stimuli will only be shown for a specific time
+	const float TrialStimuliLimit = 1.0f; // The stimuli will only be shown for a specific time
 
-	// Check if this is the first method call of the first trial. If yes, then set timestamp
+	// Check if this is the first method call of the first trial. If yes, then set the timestamp
 	if (isFirstNDRTTrial) {
 		NBackTrialStartTimestamp = FDateTime::Now();
 		isFirstNDRTTrial = false;
@@ -1207,6 +1210,9 @@ void AEgoVehicle::VisualNBackTaskTick()
 	// Hide the stimuli after some time
 	if (GetTimeInSeconds(FDateTime::Now()) - GetTimeInSeconds(NBackTrialStartTimestamp) >= TrialStimuliLimit) {
 		SetBoard(TEXT("")); // Set the board to black material
+	}
+	else if (NBackPrompts.Num() > NBackRecordedResponses.Num()) {
+		SetBoard(NBackPrompts[NBackRecordedResponses.Num()]); // Set the board just to be safe (if its hidden by mistake)
 	}
 
 	if (IsNBackResponseGiven)
