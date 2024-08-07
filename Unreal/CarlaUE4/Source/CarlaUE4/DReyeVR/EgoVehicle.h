@@ -316,6 +316,7 @@ public:
     float NDRTStartLag = 5.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
     float AutopilotStartTimestamp = -1; // Store when the autopilot started
     float ResumedAutopilotStartTimestamp = -1; // Store when the autopilot is resumed
+    bool isFirstNDRTTrial = true;
 
     enum class InterruptionMethod { Immediate, Negotiated, Scheduled}; // Change the behaviour of the NDRT interruption based on the type provided
     InterruptionMethod CurrInterruptionMethod = InterruptionMethod::Immediate; // Should be dynamically retrieved from a config file
@@ -374,7 +375,6 @@ public:
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
     float NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
-    bool isFirstNBackTrial = true;
     bool IsNBackResponseGiven = false; // Stores whether an input was given for a specific trial
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackStimuli;

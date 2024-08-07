@@ -382,6 +382,8 @@ void AEgoVehicle::TickNDRT()
 		{
 			if ((UGameplayStatics::GetRealTimeSeconds(GetWorld()) - ResumedAutopilotStartTimestamp) >= NDRTStartLag)
 			{
+				// Reset the first trial boolean to avoid first trial ending issue
+				isFirstNDRTTrial = true;
 				ToggleNDRT(true);
 				HandleTaskTick();
 			}
@@ -1011,9 +1013,9 @@ void AEgoVehicle::NBackTaskTick()
 	const float TrialTimeLimit = OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1);
 
 	// Check if this is the first method call of the first trial. If yes, then set timestamp
-	if (isFirstNBackTrial) {
+	if (isFirstNDRTTrial) {
 		NBackTrialStartTimestamp = FPlatformTime::Seconds();
-		isFirstNBackTrial = false;
+		isFirstNDRTTrial = false;
 	}
 
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
@@ -1155,9 +1157,9 @@ void AEgoVehicle::VisualNBackTaskTick()
 	const float TrialStimuliLimit = 0.5f; // The stimuli will only be shown for a specific time
 
 	// Check if this is the first method call of the first trial. If yes, then set timestamp
-	if (isFirstNBackTrial) {
+	if (isFirstNDRTTrial) {
 		NBackTrialStartTimestamp = FPlatformTime::Seconds();
-		isFirstNBackTrial = false;
+		isFirstNDRTTrial = false;
 	}
 
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
