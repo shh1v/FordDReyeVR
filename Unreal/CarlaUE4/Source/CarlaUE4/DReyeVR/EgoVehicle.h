@@ -371,10 +371,11 @@ public:
     TArray<FString> AvailableNBackBoards; // Stores all the board patterns available.
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
     TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
+    TArray<FString> NBackStartTimestamp; // Store the timestamp of trial start
     TArray<FString> NBackResponseTimestamp; // Store the timestamp of when the response was registered by the simulator
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
-    float NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
+    FDateTime NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
     bool IsNBackResponseGiven = false; // Stores whether an input was given for a specific trial
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackStimuli;
@@ -391,7 +392,7 @@ public:
     bool bWasNBBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
     void NBackTaskTick(); // Update the n-back task in every tick
     void VisualNBackTaskTick(); // Update the visual n-back task in every tick
-
+    double GetTimeInSeconds(const FDateTime& DateTime);
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
     void SetNBackTitle(int32 NBackValue); // Set the n-back title with the correct n-value.
     void SetLetter(const FString& Letter); // Set a new letter in the n-back task.

@@ -94,7 +94,7 @@
 		},
 		{
 			"Name": "SteamVR",
-			"Enabled": true,
+			"Enabled": false,
 			"WhitelistPlatforms": [
 				"Win32",
 				"Win64",
@@ -122,6 +122,10 @@
 		{
 			"Name": "LogitechWheelPlugin",
 			"Enabled": true
+		},
+		{
+			"Name": "SRanipal",
+			"Enabled": false
 		}
 	]
 }

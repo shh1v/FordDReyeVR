@@ -163,7 +163,8 @@ void AEgoVehicle::ReadExperimentVariables()
 
     if (CurrTaskType == TaskType::NBackTask || CurrTaskType == TaskType::VisualNBackTask)
     {
-        TotalNBackTasks = 40;
+        GeneralParams.Get<int32>("NDRT", "TotalNBackTasks", TotalNBackTasks);
+
         if (TaskSetting.Equals(TEXT("One")))
         {
             CurrentNValue = NValue::One;

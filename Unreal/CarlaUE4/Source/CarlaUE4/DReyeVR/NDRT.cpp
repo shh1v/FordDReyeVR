@@ -212,17 +212,17 @@ void AEgoVehicle::TerminateNDRT()
 	// This is done so that the updated file (by python API) is re-read
 	ExperimentParams = ConfigFile(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));
 
-	// Preparing the common row data
-	TArray<FString> CommonRowData = {ExperimentParams.Get<FString>("General", "ParticipantID")};
-	const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
-	CommonRowData.Add(CurrentBlock.Mid(0, 6)); // Add the block number
-	CommonRowData.Add(CurrentBlock.Mid(6, 6)); // Add the trial number
-	CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType"));
-	CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting"));
-	CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "Traffic"));
-
 	if (CurrTaskType == TaskType::NBackTask)
 	{
+		// Preparing the common row data
+		TArray<FString> CommonRowData = { ExperimentParams.Get<FString>("General", "ParticipantID") };
+		const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
+		CommonRowData.Add(CurrentBlock.Mid(0, 6)); // Add the block number
+		CommonRowData.Add(CurrentBlock.Mid(6, 6)); // Add the trial number
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "Traffic"));
+
 		// Define the CSV file path
 		const FString NBackCSVFilePath = FPaths::ProjectContentDir() / TEXT("NDRTPerformance/n_back.csv");
 
@@ -250,6 +250,44 @@ void AEgoVehicle::TerminateNDRT()
 			// Append this row to the CSV file
 			FFileHelper::SaveStringToFile(RowString + TEXT("\n"), *NBackCSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 		}
+	}
+	else if (CurrTaskType == TaskType::VisualNBackTask)
+	{
+		// Preparing the common row data
+		TArray<FString> CommonRowData = { ExperimentParams.Get<FString>("General", "ParticipantID") };
+		const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "InterruptionMethod"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting"));
+
+		// Define the CSV file path
+		const FString NBackCSVFilePath = FPaths::ProjectContentDir() / TEXT("NDRTPerformance/visual_n_back.csv");
+
+		// Check if the file exists, and if not, create it and write the header
+		if (!FPaths::FileExists(NBackCSVFilePath))
+		{
+			FString Header = TEXT("ParticipantID,InterruptionMethod,TaskType,TaskSetting,StartTimestamp,ResponseTimestamp,NBackPrompt,NBackResponse\n");
+			FFileHelper::SaveStringToFile(Header, *NBackCSVFilePath);
+		}
+
+		// Now, iterate through all the NBack prompts and responses and write in the CSV file
+		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num() && NBackPrompts.Num() == NBackStartTimestamp.Num())
+
+			for (int32 i = 0; i < NBackPrompts.Num(); i++)
+			{
+				// Combine the common data with the specific data for this iteration
+				TArray<FString> NBackRowData = CommonRowData;
+				NBackRowData.Add(NBackStartTimestamp[i]);
+				NBackRowData.Add(NBackResponseTimestamp[i]);
+				NBackRowData.Add(NBackPrompts[i]);
+				NBackRowData.Add(NBackRecordedResponses[i]);
+
+				// Convert the row data to a single comma-separated string
+				FString RowString = FString::Join(NBackRowData, TEXT(","));
+
+				// Append this row to the CSV file
+				FFileHelper::SaveStringToFile(RowString + TEXT("\n"), *NBackCSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
+			}
 	}
 }
 
@@ -383,7 +421,6 @@ void AEgoVehicle::TickNDRT()
 			if ((UGameplayStatics::GetRealTimeSeconds(GetWorld()) - ResumedAutopilotStartTimestamp) >= NDRTStartLag)
 			{
 				// Reset the first trial boolean to avoid first trial ending issue
-				isFirstNDRTTrial = true;
 				ToggleNDRT(true);
 				HandleTaskTick();
 			}
@@ -391,6 +428,9 @@ void AEgoVehicle::TickNDRT()
 		else
 		{
 			ResumedAutopilotStartTimestamp = UGameplayStatics::GetRealTimeSeconds(GetWorld());
+
+			// Also take this opportunity to rest the first NDRT boolean
+			isFirstNDRTTrial = true;
 		}
 
 		return; // Exit for efficiency
@@ -1014,11 +1054,11 @@ void AEgoVehicle::NBackTaskTick()
 
 	// Check if this is the first method call of the first trial. If yes, then set timestamp
 	if (isFirstNDRTTrial) {
-		NBackTrialStartTimestamp = FPlatformTime::Seconds();
+		NBackTrialStartTimestamp = FDateTime::Now();
 		isFirstNDRTTrial = false;
 	}
 
-	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
+	const bool HasTimeExpired = GetTimeInSeconds(FDateTime::Now()) - GetTimeInSeconds(NBackTrialStartTimestamp) >= TrialTimeLimit;
 
 	if (IsNBackResponseGiven)
 	{
@@ -1061,7 +1101,7 @@ void AEgoVehicle::NBackTaskTick()
 			SetLetter(NBackPrompts[NBackRecordedResponses.Num()]);
 
 			// Since a new letter is set, update the time stamp
-			NBackTrialStartTimestamp = FPlatformTime::Seconds();
+			NBackTrialStartTimestamp = FDateTime::Now();
 
 			// Reset the boolean variable for the new trial now
 			IsNBackResponseGiven = false;
@@ -1158,14 +1198,14 @@ void AEgoVehicle::VisualNBackTaskTick()
 
 	// Check if this is the first method call of the first trial. If yes, then set timestamp
 	if (isFirstNDRTTrial) {
-		NBackTrialStartTimestamp = FPlatformTime::Seconds();
+		NBackTrialStartTimestamp = FDateTime::Now();
 		isFirstNDRTTrial = false;
 	}
 
-	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
+	const bool HasTimeExpired = GetTimeInSeconds(FDateTime::Now()) - GetTimeInSeconds(NBackTrialStartTimestamp) >= TrialTimeLimit;
 
 	// Hide the stimuli after some time
-	if (FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialStimuliLimit) {
+	if (GetTimeInSeconds(FDateTime::Now()) - GetTimeInSeconds(NBackTrialStartTimestamp) >= TrialStimuliLimit) {
 		SetBoard(TEXT("")); // Set the board to black material
 	}
 
@@ -1189,7 +1229,7 @@ void AEgoVehicle::VisualNBackTaskTick()
 				{
 					// This should ideally never kick in
 					int32 AdditionalTasks = static_cast<int32>((OneBackTimeLimit * 10) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
-					for (int32 i = 0; i < 10; i++)
+					for (int32 i = 0; i < 3; i++)
 					{
 						// NOTE: A "MATCH" is generated 50% of the times
 						FString PlusLocation;
@@ -1209,7 +1249,7 @@ void AEgoVehicle::VisualNBackTaskTick()
 			SetBoard(NBackPrompts[NBackRecordedResponses.Num()]);
 
 			// Since a new letter is set, update the time stamp
-			NBackTrialStartTimestamp = FPlatformTime::Seconds();
+			NBackTrialStartTimestamp = FDateTime::Now();
 
 			// Reset the boolean variable for the new trial now
 			IsNBackResponseGiven = false;
@@ -1288,6 +1328,13 @@ void AEgoVehicle::VisualNBackTaskTick()
 		FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
 		NBackResponseTimestamp.Add(Timestamp);
 
+		// Store the timestamp of the trial start
+		TimestampWithoutMilliseconds = NBackTrialStartTimestamp.ToString(TEXT("%d/%m/%Y %H:%M:%S"));
+		Milliseconds = NBackTrialStartTimestamp.GetMillisecond();
+		Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
+		NBackStartTimestamp.Add(Timestamp);
+
+
 		// We can now clear the response buffer
 		NBackResponseBuffer.Empty();
 	}
@@ -1311,6 +1358,27 @@ void AEgoVehicle::TVShowTaskTick()
 }
 
 // Misc methods
+
+double AEgoVehicle::GetTimeInSeconds(const FDateTime& DateTime)
+{
+	// Define the Unix epoch start date
+	FDateTime UnixEpoch(1970, 1, 1);
+
+	// Calculate the time span from the Unix epoch to the given date and time
+	FTimespan Elapsed = DateTime - UnixEpoch;
+
+	// Get the total seconds from the time span
+	int64 TotalSeconds = Elapsed.GetTotalSeconds();
+
+	// Calculate the milliseconds fraction from the FDateTime object
+	double MillisecondsFraction = DateTime.GetMillisecond() / 1000.0;
+
+	// Combine whole seconds and fractional milliseconds
+	double SecondsWithFraction = static_cast<double>(TotalSeconds) + MillisecondsFraction;
+
+	return SecondsWithFraction;
+}
+
 void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor)
 {
 	MessagePane->SetTextRenderColor(TextColor);
