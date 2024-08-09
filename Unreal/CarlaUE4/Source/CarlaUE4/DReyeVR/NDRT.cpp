@@ -1298,7 +1298,7 @@ void AEgoVehicle::VisualNBackTaskTick()
 		FString CorrectResponse;
 		if (CurrentGameIndex < static_cast<int>(CurrentNValue))
 		{
-			CorrectResponse = TEXT("MM");
+			CorrectResponse = TEXT("NR");
 		}
 		else
 		{
@@ -1313,15 +1313,18 @@ void AEgoVehicle::VisualNBackTaskTick()
 		}
 
 		// Check if the expected response matches the given response
-		if (CorrectResponse.Equals(LatestResponse))
+		if (CurrentGameIndex >= static_cast<int>(CurrentNValue))
 		{
-			// Play a "correct answer" sound
-			NBackCorrectSound->Play();
-		}
-		else
-		{
-			// Play an "incorrect answer" sound
-			NBackIncorrectSound->Play();
+			if (CorrectResponse.Equals(LatestResponse))
+			{
+				// Play a "correct answer" sound
+				NBackCorrectSound->Play();
+			}
+			else
+			{
+				// Play an "incorrect answer" sound
+				NBackIncorrectSound->Play();
+			}
 		}
 
 		// Now, add the latest response to the array just for record
